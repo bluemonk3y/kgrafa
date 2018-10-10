@@ -1,11 +1,11 @@
 /**
  * Copyright 2018 Confluent Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ * http://opensource.org/licenses/AGPL-3.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,8 +15,8 @@
  **/
 package io.confluent.kgrafa;
 
-import io.confluent.ksql.util.KsqlConfig;
 import io.confluent.kgrafa.util.KafkaTopicClientImpl;
+import io.confluent.ksql.util.KsqlConfig;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 
@@ -40,7 +40,7 @@ public class KGrafanaInstance {
   /**
    * Note: dont care about double locking because it is always created on startup in the Servlet Lifecycle.start()
    */
-  static KGrafanaInstance singleton = null;
+  private static KGrafanaInstance singleton = null;
   public static KGrafanaInstance getInstance(Properties propertes) {
     if (singleton == null) {
 

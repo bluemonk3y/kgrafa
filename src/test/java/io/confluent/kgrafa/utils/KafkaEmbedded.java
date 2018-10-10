@@ -1,11 +1,11 @@
 /**
  * Copyright 2018 Confluent Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ * http://opensource.org/licenses/AGPL-3.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,12 +14,6 @@
  * limitations under the License.
  **/
 package io.confluent.kgrafa.utils;
-
-import org.apache.kafka.common.utils.SystemTime;
-import org.slf4j.Logger;
-
-import java.io.File;
-import java.util.Properties;
 
 import kafka.admin.AdminUtils;
 import kafka.admin.RackAwareMode;
@@ -32,10 +26,14 @@ import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.common.network.ListenerName;
+import org.apache.kafka.common.utils.SystemTime;
 import org.junit.rules.TemporaryFolder;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.Properties;
 
 /**
  * Runs an in-memory, "embedded" instance of a Kafka broker, which listens at `127.0.0.1:9092` by

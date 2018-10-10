@@ -1,11 +1,11 @@
 /**
  * Copyright 2018 Confluent Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ * http://opensource.org/licenses/AGPL-3.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,18 +17,11 @@ package io.confluent.kgrafa;
 
 import io.confluent.kgrafa.util.KafkaTopicClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
 
@@ -51,7 +44,7 @@ public class SimpleKGrafa implements KGrafa {
 
   private final KafkaTopicClient topicClient;
 
-  public SimpleKGrafa(KafkaTopicClient topicClient, int numPriorities, String prefix, String bootstrapServers, int numPartitions, short replicationFactor) {
+  SimpleKGrafa(KafkaTopicClient topicClient, int numPriorities, String prefix, String bootstrapServers, int numPartitions, short replicationFactor) {
     this.numPriorities = numPriorities;
     this.prefix = prefix.toUpperCase();
     this.bootstrapServers = bootstrapServers;

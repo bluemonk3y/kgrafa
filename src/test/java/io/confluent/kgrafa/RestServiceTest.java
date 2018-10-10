@@ -1,11 +1,11 @@
 /**
  * Copyright 2018 Confluent Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ * http://opensource.org/licenses/AGPL-3.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,15 +20,15 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.MatcherAssert.assertThat;
-
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 public class RestServiceTest {
 
@@ -67,7 +67,7 @@ public class RestServiceTest {
 
 
   @Test
-  public void runSimulation() throws Exception {
+  public void runSimulation() {
 
     Client client = ClientBuilder.newClient();
 
@@ -80,7 +80,7 @@ public class RestServiceTest {
     Assert.assertNotNull("Should have created KWQ instance", put);
   }
   @Test
-  public void testGetTask() throws Exception {
+  public void testGetTask() {
 
     Client client = ClientBuilder.newClient();
     WebTarget target = client.target("http://localhost:8080").path("/kwq");

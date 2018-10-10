@@ -4,16 +4,18 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.confluent.Kgrafa</groupId>
+    <groupId>io.confluentxs</groupId>
     <artifactId>kgrafa</artifactId>
     <version>0.1-SNAPSHOT</version>
+    <name>KGrafa</name>
 
+    <description>Grafana rest service for visualizing metricated Kafka data</description>
     <packaging>jar</packaging>
 
     <licenses>
         <license>
-            <name>Apache License 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.html</url>
+            <name>GNU AFFERO GENERAL PUBLIC LICENSE</name>
+            <url>http://opensource.org/licenses/AGPL-3.0</url>
             <distribution>repo</distribution>
         </license>
     </licenses>
