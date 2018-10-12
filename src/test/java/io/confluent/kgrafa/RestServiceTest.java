@@ -48,6 +48,10 @@ public class RestServiceTest {
 
     Thread.sleep( 500);
 
+    testHarness.createTopic("metrics_nasa-6_cpu", 1, 1);
+    testHarness.createTopic("metrics_prometheus_cpu", 1, 1);
+    testHarness.createTopic("metrics_apollo_cpu", 1, 1);
+
     RestServerMain.initialize();
     RestServerMain.start();
   }
@@ -83,7 +87,7 @@ public class RestServiceTest {
   public void testGetTask() {
 
     Client client = ClientBuilder.newClient();
-    WebTarget target = client.target("http://localhost:8080").path("/kwq");
+    WebTarget target = client.target("http://localhost:8080").path("/kgrafa");
     String response = target.request(MediaType.APPLICATION_JSON_TYPE).get(String.class);
 
     Assert.assertNotNull("Should have created KSWQ and returned a valid string", response);

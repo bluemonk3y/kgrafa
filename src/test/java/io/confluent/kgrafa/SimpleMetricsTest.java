@@ -19,7 +19,7 @@ import io.confluent.kgrafa.utils.IntegrationTestHarness;
 import org.junit.After;
 import org.junit.Before;
 
-public class SimpleKGrafaTaskPriorityTest {
+public class SimpleMetricsTest {
 
 
   private IntegrationTestHarness testHarness;
@@ -47,7 +47,7 @@ public class SimpleKGrafaTaskPriorityTest {
 //
 //    Task firstItem = TaskDataProvider.data.values().iterator().next();
 //
-//    testHarness.produceData("KWQ-5", Collections.singletonMap(firstItem.getId(), firstItem), new TaskSerDes(), 1L);
+//    testHarness.produceData("KWQ-5", Collections.singletonMap(firstItem.getId(), firstItem), new MetricSerDes(), 1L);
 //
 //    Task consume = kgrafa.consume();
 //    Assert.assertEquals(firstItem, consume);

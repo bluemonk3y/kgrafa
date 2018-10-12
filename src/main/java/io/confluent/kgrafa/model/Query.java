@@ -77,4 +77,14 @@ public class Query {
   public void setMaxDataPoints(int maxDataPoints) {
     this.maxDataPoints = maxDataPoints;
   }
+
+  public long getIntervalAsMillis() {
+    if (interval.endsWith("s")) {
+      return Long.parseLong(interval.substring(0, interval.length() - 1)) * 1000;
+    }
+    if (interval.endsWith("m")) {
+      return Long.parseLong(interval.substring(0, interval.length() - 1)) * 1000 * 60;
+    }
+    return Long.parseLong(interval.substring(0, interval.length() - 1)) * 1000 * 60 * 60;
+  }
 }

@@ -15,6 +15,10 @@
  **/
 package io.confluent.kgrafa.model;
 
+import io.confluent.kgrafa.model.metric.MetricStats;
+
+import java.util.List;
+
 /**
  * [
  *   {
@@ -74,5 +78,18 @@ public class TimeSeriesResult {
 
     String rr = results.toString();
     return rr.substring(0, rr.length()-1);
+  }
+
+  public void setValues(List<MetricStats> metrics) {
+
+    long[][] datapoints = new long[metrics.size()][0];
+
+    int i = 0;
+    for (MetricStats metric : metrics) {
+      datapoints[i] = new long[]{(long) metric.getMax(), metric.getTime()};
+      i++;
+    }
+
+    this.datapoints = datapoints;
   }
 }

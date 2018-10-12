@@ -18,16 +18,29 @@ package io.confluent.kgrafa;
 import io.confluent.kgrafa.model.Annnotation;
 import io.confluent.kgrafa.model.AnnnotationQuery;
 import io.confluent.kgrafa.model.AnnnotationResult;
+import io.confluent.kgrafa.model.GenerateRequest;
 import io.confluent.kgrafa.model.Query;
 import io.confluent.kgrafa.model.Range;
 import io.confluent.kgrafa.model.RangeRaw;
-import io.confluent.kgrafa.model.Target;
 import io.confluent.kgrafa.model.TimeSeriesResult;
+import io.confluent.kgrafa.model.metric.Metric;
+import io.confluent.kgrafa.model.metric.MetricSerDes;
+import io.confluent.kgrafa.util.KafkaTopicClientImpl;
+import io.confluent.kgrafa.util.LockfreeConcurrentQueue;
+import io.confluent.ksql.util.KsqlConfig;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.Serdes;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.kafka.streams.StreamsConfig;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -38,6 +51,16 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Queue;
+import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Handles
@@ -52,6 +75,15 @@ import java.util.ArrayList;
 @Produces(MediaType.APPLICATION_JSON)
 
 public class MetricsResource {
+  Queue<Metric> inputMetrics = new LockfreeConcurrentQueue<>();
+
+  private final ScheduledExecutorService scheduler;
+  String metricPrefix = "metrics";
+
+  public MetricsResource() {
+    scheduler = Executors.newSingleThreadScheduledExecutor();
+    scheduler.scheduleAtFixedRate(() -> flushMetrics(), 10, 10, TimeUnit.SECONDS);
+  }
 
   @GET
   @Produces("application/json")
@@ -59,6 +91,33 @@ public class MetricsResource {
   public String get() {
     return "KGrafana Metrics Service";
   }
+
+  @GET
+  @Produces("application/json")
+  @Path("/datasources")
+  public String getDatasources() {
+
+
+    Set<String> raw = getKafkaTopicClient().listTopicNames();
+
+    List<String> datasources = new ArrayList<>(raw.stream().filter(i -> i.contains(metricPrefix)).collect(Collectors.toList()));
+
+    Collections.sort(datasources);
+
+
+    return "{" +
+            "\n {\n" +
+            "  \"name\":\"test_datasource\",\n" +
+            "  \"type\":\"kgrafa\",\n" +
+            "  \"url\":\"http://mydatasource.com\",\n" +
+            "  \"access\":\"proxy\",\n" +
+            "  \"basicAuth\":false\n" +
+            " }\n" +
+            " list of available sources\": \n" +
+            datasources.toString() +
+            "\n}";
+  }
+
 
   @OPTIONS
   @Path("/annotations")
@@ -132,22 +191,6 @@ public class MetricsResource {
             .build();
   }
 
-//  @POST
-//  @Path("/search")
-//  public JsonArray search(
-//          @Parameter(description =
-//                  " <br> " , required = true) JsonObject query) {
-//
-//    String sq = query.toString();
-//    System.out.println(sq);
-//
-//    JsonArrayBuilder arr = Json.createArrayBuilder();
-//    arr.add("upper_75");
-//    arr.add("upper_80");
-//    arr.add("upper_90");
-//    return arr.build();
-//  }
-
   @POST
   @Path("/testDatasource")
   @Operation(summary = "used by datasource configuration page to make sure the connection is working",
@@ -167,6 +210,26 @@ public class MetricsResource {
     return noContent();
   }
 
+  /**
+   * {
+   * "range": { "from": "2015-12-22T03:06:13.851Z", "to": "2015-12-22T06:48:24.137Z" },
+   * "interval": "5s",
+   * "targets": [
+   * { "refId": "B", "target": "upper_75" },
+   * { "refId": "A", "target": "upper_90" }
+   * ],
+   * "format": "json",
+   * "maxDataPoints": 2495 //decided by the panel
+   * }
+   * Out {
+   * "target":"upper_75",
+   * "datapoints":[
+   * [622, 1450754160000],
+   * [365, 1450754220000]
+   * ]
+   * },
+   */
+
   @POST
   @Path("/query")
   @Operation(summary = "used by panels to get data",
@@ -177,17 +240,17 @@ public class MetricsResource {
           })
   public String query(@Parameter(description = "query sent from the dashboard" , required = true) Query query ) {
 
-    ArrayList<TimeSeriesResult> results = new ArrayList<>();
-    if (query.getTargets() != null) {
-      Target[] target = query.getTargets();
-      for (Target target1 : target) {
+    MetricStatsCollector metricStatsCollector = new MetricStatsCollector(query.getTargets()[0].getTarget(), streamsProperties(), query.getIntervalAsMillis(), query.getRange().getStart(), query.getRange().getEnd());
 
-        TimeSeriesResult timeSeriesResult = new TimeSeriesResult();
-        timeSeriesResult.setTarget(target1.getTarget());
-        timeSeriesResult.setDatapoints(createDatapoints(query.getRange(), query.getMaxDataPoints()));
-        results.add(timeSeriesResult);
-      }
-    }
+    metricStatsCollector.start();
+    metricStatsCollector.waitUntilReady();
+
+    ArrayList<TimeSeriesResult> results = new ArrayList<>();
+
+    TimeSeriesResult timeSeriesResult = new TimeSeriesResult();
+    timeSeriesResult.setTarget(query.getTargets()[0].getTarget());
+    timeSeriesResult.setValues(metricStatsCollector.getMetrics());
+    results.add(timeSeriesResult);
 
     // moxy doesnt support multi-dimensional arrays so drop back to a json-string and rely on json response type
     // https://bugs.eclipse.org/bugs/show_bug.cgi?id=389815
@@ -195,24 +258,117 @@ public class MetricsResource {
   }
 
   /**
-   * {
-   *     "target":"upper_75",
-   *     "datapoints":[
-   *       [622, 1450754160000],
-   *       [365, 1450754220000]
-   *     ]
-   *   },
+   * Test data driver
+   * @return
    */
+  @POST
+  @Produces("application/json")
+  @Path("/generateRandomData")
+  public String generateRandomData() {
+    String[] sources = {"emea-dc1"};
+    String[] resources = {"apollo", "nasa", "mars", "saturn-5", "lander-6", "mission-12", "apoloco"};
+    String[] metrics = {"cpu", "network", "latency"};
 
-  private long[][] createDatapoints(Range range, int samples) {
-
-    long[][] datapoints = new long[samples][0];
-
-    long step = (range.getDuration()) / samples;
-
-    for (int i = 0; i < samples; i++) {
-      datapoints[i] = new long[] {(long) (Math.random() * (10 * i)), range.getStart() + i * step };
+    for (String metric : metrics) {
+      for (String resource : resources) {
+        generateTestData(new GenerateRequest(sources[0], resource, metric, 60));
+      }
     }
-    return datapoints;
+
+    return "{" +
+            " \"response\":\"done\"\n" +
+            "\n}";
+
+  }
+
+
+  @POST
+  @Produces("application/json")
+  @Path("/generateTestData")
+  public String generateTestData(@Parameter(description = "source host", required = true) GenerateRequest request) {
+
+    int minutes = 5;
+    int points = 60 * minutes;
+    long time = System.currentTimeMillis() - 1000l * points;
+    // data for every 1 second
+    long interval = System.currentTimeMillis() - time / 1000;
+    for (int i = 0; i < points; i++) {
+      double value = (Math.random() * 100.0) * i + 1; // make a rough upward trend
+      time += interval;
+      putMetric(new Metric(metricPrefix, request.getSource(), request.getResource(), request.getMetric(), value, time));
+    }
+
+    return "{" +
+            " \"response\":\"done\"\n" +
+            "\n}";
+  }
+
+  @POST
+  @Produces("application/json")
+  @Path("/putMetric")
+  public String putMetric(@Parameter(description = "source host", required = true) Metric metric) {
+    inputMetrics.add(metric);
+    if (inputMetrics.size() > 1000) {
+      flushMetrics();
+    }
+    return String.format("{ \"queue\": \"%d\"", inputMetrics.size());
+  }
+
+  synchronized private void flushMetrics() {
+    KafkaProducer producer = getProducer();
+    while (!inputMetrics.isEmpty()) {
+      Metric metric = inputMetrics.remove();
+      producer.send(new ProducerRecord(metric.getName(), metric.getResource(), metric));
+    }
+    producer.flush();
+  }
+
+
+  private KafkaTopicClientImpl kafkaTopicClient;
+
+
+  synchronized public KafkaTopicClientImpl getKafkaTopicClient() {
+    if (kafkaTopicClient == null) {
+      Properties consumerConfig = new Properties();
+      consumerConfig.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"));
+      consumerConfig.put(ConsumerConfig.GROUP_ID_CONFIG, System.getProperty("prefix", "kgrafa"));
+      consumerConfig.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+      consumerConfig.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
+
+      KsqlConfig ksqlConfig = new KsqlConfig(consumerConfig);
+
+      Map<String, Object> ksqlAdminClientConfigProps = ksqlConfig.getKsqlAdminClientConfigProps();
+
+      AdminClient adminClient = AdminClient.create(ksqlAdminClientConfigProps);
+      kafkaTopicClient = new KafkaTopicClientImpl(adminClient);
+    }
+    return kafkaTopicClient;
+  }
+
+  private KafkaProducer<String, Metric> producer;
+
+  private synchronized KafkaProducer getProducer() {
+    if (producer == null) {
+      producer = new KafkaProducer<>(producerConfig(), new StringSerializer(), new MetricSerDes());
+    }
+    return producer;
+  }
+
+  private Properties producerConfig() {
+    Properties producerConfig = new Properties();
+    producerConfig.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"));
+//    producerConfig.put(ProducerConfig.ACKS_CONFIG, "all");
+    producerConfig.put(ProducerConfig.RETRIES_CONFIG, 0);
+    return producerConfig;
+  }
+
+  private StreamsConfig streamsProperties() {
+    Properties config = new Properties();
+    config.put(StreamsConfig.APPLICATION_ID_CONFIG, "kgrafa-server");
+    config.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, System.getProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"));
+    config.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
+    config.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, MetricSerDes.class);
+    config.put(StreamsConfig.COMMIT_INTERVAL_MS_CONFIG, 5000);
+    return new StreamsConfig(config);
   }
 }

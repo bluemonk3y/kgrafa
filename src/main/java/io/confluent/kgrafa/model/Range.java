@@ -52,4 +52,9 @@ public class Range {
   public long getStart() {
     return from.getTime();
   }
+
+  public long getEnd() {
+    return to.getTime();
+
+  }
 }
