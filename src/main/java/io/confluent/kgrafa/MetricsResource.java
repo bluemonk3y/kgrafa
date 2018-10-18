@@ -44,12 +44,10 @@ import org.apache.kafka.streams.StreamsConfig;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
-import javax.ws.rs.OPTIONS;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -69,6 +67,15 @@ import java.util.stream.Collectors;
  * - annotationQuery(options) used by dashboards to get annotations
  * - metricFindQuery(options)  used by query editor to get metric suggestions.
  *
+ * Javascript controls for the panel:
+ * https://github.com/grafana/grafana/blob/master/docs/sources/plugins/developing/datasources.md
+ * - QueryCtrl
+ * - ConfigCtrl
+ * - AnnotationsQueryCtrl
+ *
+ * Another one is:
+ * https://github.com/grafana/simple-json-datasource
+ *
  */
 @Path("metrics")
 @Consumes(MediaType.APPLICATION_JSON)
@@ -85,46 +92,10 @@ public class MetricsResource {
     scheduler.scheduleAtFixedRate(() -> flushMetrics(), 10, 10, TimeUnit.SECONDS);
   }
 
-  @GET
-  @Produces("application/json")
-  @Path("/info")
-  public String get() {
-    return "KGrafana Metrics Service";
-  }
-
-  @GET
-  @Produces("application/json")
-  @Path("/datasources")
-  public String getDatasources() {
-
-
-    Set<String> raw = getKafkaTopicClient().listTopicNames();
-
-    List<String> datasources = new ArrayList<>(raw.stream().filter(i -> i.contains(metricPrefix)).collect(Collectors.toList()));
-
-    Collections.sort(datasources);
-
-
-    return "{" +
-            "\n {\n" +
-            "  \"name\":\"test_datasource\",\n" +
-            "  \"type\":\"kgrafa\",\n" +
-            "  \"url\":\"http://mydatasource.com\",\n" +
-            "  \"access\":\"proxy\",\n" +
-            "  \"basicAuth\":false\n" +
-            " }\n" +
-            " list of available sources\": \n" +
-            datasources.toString() +
-            "\n}";
-  }
-
-
-  @OPTIONS
-  @Path("/annotations")
-  public Response annotationOptions() {
-
-    return noContent();
-  }
+  /**
+   * Grafana Datasource API
+   * @return
+   */
 
   /**
    *
@@ -177,19 +148,6 @@ public class MetricsResource {
     return new AnnnotationResult[] { annnotationResult} ;
   }
 
-  @OPTIONS
-  @Path("/search")
-  public Response searchOptions() {
-    return noContent();
-  }
-
-  private Response noContent() {
-    return Response.noContent()
-            .header("Access-Control-Allow-Headers", "accept, content-type")
-            .header("Access-Control-Allow-Methods", "POST")
-            .header("Access-Control-Allow-Origin", "*")
-            .build();
-  }
 
   @POST
   @Path("/testDatasource")
@@ -203,12 +161,6 @@ public class MetricsResource {
     return  "{ status: \"success\", message: \"Data source is working\", title: \"Success\" }";
   }
 
-
-  @OPTIONS
-  @Path("/query")
-  public Response queryOptions() {
-    return noContent();
-  }
 
   /**
    * {
@@ -256,6 +208,84 @@ public class MetricsResource {
     // https://bugs.eclipse.org/bugs/show_bug.cgi?id=389815
     return results.toString();
   }
+
+  @POST
+  @Path("/metricFindQuery")
+  @Operation(summary = "used by panels to get data",
+          tags = {"query"},
+          responses = {
+                  @ApiResponse(content = @Content(schema = @Schema(implementation = String.class))),
+                  @ApiResponse(responseCode = "405", description = "Invalid input")
+          })
+  public String metricFindQuery(@Parameter(description = "query sent from the dashboard", required = true) String query) {
+    return "";
+  }
+
+
+  @POST
+  @Path("/annotations")
+  @Operation(summary = "used by panels to get data",
+          tags = {"query"},
+          responses = {
+                  @ApiResponse(content = @Content(schema = @Schema(implementation = String.class))),
+                  @ApiResponse(responseCode = "405", description = "Invalid input")
+          })
+
+  public String annotations(@Parameter(description = "query sent from the dashboard", required = true) String quary) {
+    return "";
+  }
+
+  @POST
+  @Path("/search")
+  @Operation(summary = "used by panels to get data",
+          tags = {"query"},
+          responses = {
+                  @ApiResponse(content = @Content(schema = @Schema(implementation = String.class))),
+                  @ApiResponse(responseCode = "405", description = "Invalid input")
+          })
+  public String search(@Parameter(description = "query sent from the dashboard", required = true) String query) {
+    return "";
+  }
+
+
+  /**
+   * General API stuff
+   *
+   * @return
+   */
+  @GET
+  @Produces("application/json")
+  @Path("/info")
+  public String info() {
+    return "KGrafana Metrics Service";
+  }
+
+  @GET
+  @Produces("application/json")
+  @Path("/datasources")
+  public String datasources() {
+
+
+    Set<String> raw = getKafkaTopicClient().listTopicNames();
+
+    List<String> datasources = new ArrayList<>(raw.stream().filter(i -> i.contains(metricPrefix)).collect(Collectors.toList()));
+
+    Collections.sort(datasources);
+
+
+    return "{" +
+            "\n {\n" +
+            "  \"name\":\"test_datasource\",\n" +
+            "  \"type\":\"kgrafa\",\n" +
+            "  \"url\":\"http://mydatasource.com\",\n" +
+            "  \"access\":\"proxy\",\n" +
+            "  \"basicAuth\":false\n" +
+            " }\n" +
+            " list of available sources\": \n" +
+            datasources.toString() +
+            "\n}";
+  }
+
 
   /**
    * Test data driver
