@@ -20,26 +20,16 @@ import io.confluent.kgrafa.model.metric.MetricStats;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
-import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
-import org.apache.kafka.streams.kstream.KStream;
-import org.apache.kafka.streams.kstream.KTable;
-import org.apache.kafka.streams.kstream.Materialized;
-import org.apache.kafka.streams.kstream.TimeWindows;
-import org.apache.kafka.streams.kstream.Windowed;
+import org.apache.kafka.streams.kstream.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import static io.confluent.kgrafa.model.metric.MetricStats.TaskStatsSerde;
-
-//import io.confluent.kgrafa.model.metric.Task;
-
+import static io.confluent.kgrafa.model.metric.MetricStats.MetricStatsSerde;
 
 public class MetricStatsCollector {
   private static final Logger log = LoggerFactory.getLogger(MetricStatsCollector.class);
@@ -47,7 +37,7 @@ public class MetricStatsCollector {
   public static final int RETENTION = 1000;
   private final Topology topology;
   private MetricStats currentWindowStats;
-  private final StreamsConfig streamsConfig;
+    private final Properties streamsConfig;
   private long startTime;
   private long endTime;
   private KafkaStreams streams;
@@ -55,17 +45,19 @@ public class MetricStatsCollector {
   private long windowDuration;
   private long processedLast = 0;
 
-  public MetricStatsCollector(final String metricTopic, final StreamsConfig streamsConfig, final long windowDuration, final long startTime, final long endTime) {
+    public MetricStatsCollector(final String topic, final Properties streamsConfig, final long windowDuration, final long startTime, final long endTime) {
     this.streamsConfig = streamsConfig;
     this.startTime = startTime;
     this.endTime = endTime;
     this.windowDuration = windowDuration;
-    this.topology = buildTopology(metricTopic);
+        this.topology = buildTopology(topic);
   }
 
   private Topology buildTopology(final String metricTopic) {
     StreamsBuilder builder = new StreamsBuilder();
     KStream<String, Metric> tasks = builder.stream(metricTopic);
+
+      log.debug("Duration:" + windowDuration + "ms " + new Date(startTime) + " - " + new Date(endTime) + " Topic: " + metricTopic + " Window:" + windowDuration);
 
     KTable<Windowed<String>, MetricStats> windowedTaskStatsKTable = tasks
             .filter((key, value) -> value.getTime() >= startTime && value.getTime() <= endTime)
@@ -74,7 +66,7 @@ public class MetricStatsCollector {
             .aggregate(
                     MetricStats::new,
                     (key, value, aggregate) -> aggregate.add(value),
-                    Materialized.with(new Serdes.StringSerde(), new TaskStatsSerde())
+                    Materialized.with(new Serdes.StringSerde(), new MetricStatsSerde())
             );
 
     /**
@@ -84,12 +76,13 @@ public class MetricStatsCollector {
               log.debug("Processing:{} time:{}", value, key.window().end());
               processedLast = key.window().end();
               if (currentWindowStats != null && key.window().end() != currentWindowStats.getTime()) {
-                log.debug("Adding:{} time:{}", currentWindowStats, key.window().end());
+                  log.debug("Next Window:{} time:{}", currentWindowStats, key.window().end());
                 stats.add(currentWindowStats);
                 if (stats.size() > RETENTION) {
                   stats.remove();
                 }
-                // TODO: Publish stats onto a Topic for visualization via Grafana (store in elastic or influx)
+              } else {
+                  log.debug("Accumulate");
               }
               currentWindowStats = value;
               currentWindowStats.setTime(key.window().end());
@@ -128,12 +121,14 @@ public class MetricStatsCollector {
 
   public void waitUntilReady() {
     try {
-      int waited = 0;
-      while (processedLast == 0 && waited++ < 30 || processedLast < endTime) {
-        Thread.sleep(1000);
-      }
+        Thread.sleep(5000);
+        int waited = 0;
+        while (processedLast == 0 && waited++ < 2 && processedLast != 0 && processedLast < endTime) {
+            Thread.sleep(1000);
+        }
+
     } catch (InterruptedException e) {
-      e.printStackTrace();
+        e.printStackTrace();
     }
   }
 }

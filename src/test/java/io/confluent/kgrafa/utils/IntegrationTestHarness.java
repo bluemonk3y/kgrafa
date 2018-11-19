@@ -112,7 +112,7 @@ public class IntegrationTestHarness {
   private Properties properties() {
     Properties producerConfig = new Properties();
     producerConfig.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-            ksqlConfig.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
+            ksqlConfig.getString(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
     producerConfig.put(ProducerConfig.ACKS_CONFIG, "all");
     producerConfig.put(ProducerConfig.RETRIES_CONFIG, 0);
     return producerConfig;
@@ -128,7 +128,7 @@ public class IntegrationTestHarness {
     topic = topic.toUpperCase();
 
     Properties consumerConfig = new Properties();
-    consumerConfig.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, ksqlConfig.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
+      consumerConfig.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, ksqlConfig.getString(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
     String CONSUMER_GROUP_ID_PREFIX = "KWQ-test";
     consumerConfig.put(ConsumerConfig.GROUP_ID_CONFIG, CONSUMER_GROUP_ID_PREFIX + System.currentTimeMillis());
     consumerConfig.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");

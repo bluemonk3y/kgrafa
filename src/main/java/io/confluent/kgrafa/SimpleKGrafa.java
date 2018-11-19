@@ -24,6 +24,8 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * SimpleKGrafa uses the requesting thread to service the next ConsumerAndRecords[] set iterator.
@@ -66,6 +68,19 @@ public class SimpleKGrafa implements KGrafa {
     return "running... yay";
   }
 
+  @Override
+  public List<String> listTopics(String[] filters) {
+    Set<String> topics = topicClient.listTopicNames();
+    List<String> collect = topics.stream().filter(topic -> {
+      int hits = 0;
+      for (String filter : filters) {
+        if (topic.contains(filter)) hits++;
+      }
+      return hits == filters.length;
+    }).collect(Collectors.toList());
+
+    return collect;
+  }
 
 
   private Properties consumerConfig(String bootstrapServers) {

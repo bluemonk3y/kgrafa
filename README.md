@@ -8,13 +8,17 @@ See:
 
 - https://github.com/grafana/grafana/blob/master/docs/sources/plugins/developing/datasources.md
 
-## Running Grafana
+## Running Grafana on OSX
 - cd /usr/local/Cellar/grafana/4.4.1_1/share/grafana/
 - grafana-server start
 
 # Plugin location
+/usr/local/var/lib/grafana/plugins
 /usr/local/Cellar/grafana/4.4.1_1/share/grafana/public/app/plugins/datasource
 
+
+# Grafana log file location
+/usr/local/Cellar/grafana/4.4.1_1/share/grafana/data/log
 
  ## User interface and Endpoints
   - REST: http://localhost:8080/metrics 

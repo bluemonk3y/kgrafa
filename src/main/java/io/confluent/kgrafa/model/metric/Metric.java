@@ -15,6 +15,8 @@
  **/
 package io.confluent.kgrafa.model.metric;
 
+import java.util.Date;
+
 /**
  * The Metric template for writing metric data to the kafka metrics topic in json format
  * this data is used by stream processors for generating percentile metrics
@@ -79,4 +81,15 @@ public class Metric {
   public void setTime(long time) {
     this.time = time;
   }
+
+    @Override
+    public String toString() {
+        return "Metric{" +
+                "name='" + name + '\'' +
+                ", resource='" + resource + '\'' +
+                ", value=" + value +
+                ", time=" + time +
+                ", timeS=" + new Date(time) +
+                '}';
+    }
 }

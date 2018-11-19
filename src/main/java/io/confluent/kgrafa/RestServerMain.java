@@ -37,7 +37,7 @@ public class RestServerMain {
 
   static String resourcesFolder =  System.getProperty("kgrafana.resources.folder", "./resources");
   private static String boostrapServers =  System.getProperty("bootstrap.servers", "localhost:9092");
-  private static int port = Integer.getInteger("kwq.rest.port", 8080);
+    private static int port = Integer.getInteger("kgrafa.rest.port", 8080);
 
 
   public static void main(String[] args) throws Exception {
@@ -48,7 +48,7 @@ public class RestServerMain {
   }
 
   public static void initialize() throws MalformedURLException {
-    log.info("Initializing. \n Properties: \n\tkwq.rest.port = {}\n\tkwq.resources.folder = {}\n\tboostrap.servers = {}\n\t",
+      log.info("Initializing. \n Properties: \n\tkgrafa.rest.port = {}\n\tkgrafa.resources.folder = {}\n\tboostrap.servers = {}\n\t",
             port, resourcesFolder, boostrapServers);
 
     System.out.println("Path:" + new File(".").getAbsolutePath());
@@ -62,8 +62,8 @@ public class RestServerMain {
     // http://localhost:8080/metrics
     ServletHolder apiServlet = context.addServlet(ServletContainer.class, "/*");
 
-    apiServlet.setInitParameter(ServerProperties.PROVIDER_CLASSNAMES, MetricsResource.class.getCanonicalName());
-    apiServlet.setInitParameter(ServerProperties.APPLICATION_NAME, MetricsResource.class.getCanonicalName());
+      apiServlet.setInitParameter(ServerProperties.PROVIDER_CLASSNAMES, KGrafaResource.class.getCanonicalName());
+      apiServlet.setInitParameter(ServerProperties.APPLICATION_NAME, KGrafaResource.class.getCanonicalName());
 
     apiServlet.setInitOrder(0);
     // configure swagger openapi path scanning
@@ -101,7 +101,7 @@ public class RestServerMain {
         try {
           Properties properties = new Properties();
           properties.put("bootstrap.servers", boostrapServers);
-          KGrafanaInstance.getInstance(properties);
+            KGrafaInstance.getInstance(properties);
         } catch (Throwable t) {
           log.error("Fatal error during startup", t);
           t.printStackTrace();

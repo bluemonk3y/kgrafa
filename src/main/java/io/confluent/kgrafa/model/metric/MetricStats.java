@@ -33,6 +33,8 @@ public class MetricStats {
   }
 
   public MetricStats add(Metric metric) {
+
+      System.out.println(this.toString() + " Adding: " + metric);
     total++;
     sum += metric.getValue();
     min = Math.min(min, metric.getValue());
@@ -44,6 +46,11 @@ public class MetricStats {
   @Override
   public String toString() {
     return "MetricStats{" +
+            "total=" + total +
+            ", sum=" + sum +
+            ", min=" + min +
+            ", max=" + max +
+            ", time=" + time +
             '}';
   }
 
@@ -64,8 +71,8 @@ public class MetricStats {
   }
 
 
-  static public final class TaskStatsSerde extends WrapperSerde<MetricStats> {
-    public TaskStatsSerde() {
+    static public final class MetricStatsSerde extends WrapperSerde<MetricStats> {
+        public MetricStatsSerde() {
       super(new JsonSerializer<>(), new JsonDeserializer<>(MetricStats.class));
     }
   }

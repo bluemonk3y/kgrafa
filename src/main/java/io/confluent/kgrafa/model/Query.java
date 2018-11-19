@@ -15,6 +15,8 @@
  **/
 package io.confluent.kgrafa.model;
 
+import java.util.Arrays;
+
 /**
  {
  "range": { "from": "2015-12-22T03:06:13.851Z", "to": "2015-12-22T06:48:24.137Z" },
@@ -79,12 +81,27 @@ public class Query {
   }
 
   public long getIntervalAsMillis() {
+    if (interval.endsWith("ms")) {
+      return Long.parseLong(interval.substring(0, interval.length() - 2));
+    }
+
     if (interval.endsWith("s")) {
       return Long.parseLong(interval.substring(0, interval.length() - 1)) * 1000;
     }
     if (interval.endsWith("m")) {
       return Long.parseLong(interval.substring(0, interval.length() - 1)) * 1000 * 60;
     }
-    return Long.parseLong(interval.substring(0, interval.length() - 1)) * 1000 * 60 * 60;
+    return Long.parseLong(interval);
+  }
+
+  @Override
+  public String toString() {
+    return "Query{" +
+            "range=" + range +
+            ", interval='" + interval + '\'' +
+            ", targets=" + Arrays.toString(targets) +
+            ", format='" + format + '\'' +
+            ", maxDataPoints=" + maxDataPoints +
+            '}';
   }
 }

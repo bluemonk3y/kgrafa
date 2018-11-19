@@ -15,6 +15,8 @@
  **/
 package io.confluent.kgrafa;
 
+import java.util.List;
+
 interface KGrafa {
 
   void pause();
@@ -22,4 +24,5 @@ interface KGrafa {
 
   String status();
 
+    List<String> listTopics(String[] filters);
 }

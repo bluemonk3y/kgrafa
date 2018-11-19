@@ -1,0 +1,37 @@
+{
+  "name": "KGrafa",
+  "id": "kafka-grafa datasource",
+  "type": "datasource",
+  "partials": {
+    "config": "public/app/plugins/datasource/kgrafa/partials/config.html"
+  },
+  "metrics": true,
+  "annotations": false,
+  "info": {
+    "description": "KGrafa Metrics datasource using Kafka",
+    "author": {
+      "name": "BlueMonkey Labs",
+      "url": "https://github.com/bluemonk3y"
+    },
+    "logos": {
+      "small": "img/kgrafa.svg",
+      "large": "img/kgrafa.svg"
+    },
+    "links": [
+      {
+        "name": "GitHub",
+        "url": "https://github.com/bluemonk3y/kgrafa"
+      },
+      {
+        "name": "GNU AFFERO GENERAL PUBLIC LICENSE",
+        "url": "http://opensource.org/licenses/AGPL-3.0"
+      }
+    ],
+    "version": "1.0.0",
+    "updated": "2018-10-10"
+  },
+  "dependencies": {
+    "grafanaVersion": "3.x.x",
+    "plugins": []
+  }
+}
