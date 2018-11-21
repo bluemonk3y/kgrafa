@@ -1,12 +1,12 @@
 /**
  * Copyright 2018 Confluent Inc.
- *
+ * <p>
  * Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://opensource.org/licenses/AGPL-3.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,6 +27,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Queue;
@@ -36,80 +37,82 @@ import java.util.concurrent.TimeUnit;
 
 public class KGrafaInstance {
 
-  private final KGrafa kgrafana;
+    private final KGrafa kgrafana;
     private final ScheduledExecutorService scheduler;
     Queue<Metric> inputMetrics = new LockfreeConcurrentQueue<>();
 
     public KGrafaInstance(KGrafa kgrafa) {
-    this.kgrafana = kgrafa;
+        this.kgrafana = kgrafa;
         scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.scheduleAtFixedRate(() -> flushMetrics(), 10, 1, TimeUnit.SECONDS);
 
-  }
+    }
 
-  public KGrafa getInstance() {
-    return kgrafana;
-  }
+    public KGrafa getInstance() {
+        return kgrafana;
+    }
 
     synchronized public void flushMetrics() {
         KafkaProducer producer = getProducer();
+
+        Map<String, String> createdTopics = new HashMap<>();
         while (!inputMetrics.isEmpty()) {
             Metric metric = inputMetrics.remove();
-            // TODO: fix partition assignment based upon topic partition count and hash/modulus of resource-key
-            producer.send(new ProducerRecord(metric.getName(), 0, metric.getTime(), metric.getResource(), metric));
 
-            System.out.println("Storing: " + metric);
+            createdTopics.computeIfAbsent(metric.getName(), k -> {
+                getInstance().createTopic(metric.getName());
+                return metric.getName();
+            });
+
+            producer.send(new ProducerRecord(metric.getName(), getInstance().getNumPartitions() - 1 % metric.getName().hashCode(), metric.getTime(), metric.getName(), metric));
         }
         producer.flush();
     }
 
 
-
-  /**
-   * Note: dont care about double locking because it is always created on startup in the Servlet Lifecycle.start()
-   */
-  private static KGrafaInstance singleton = null;
+    /**
+     * Note: dont care about double locking because it is always created on startup in the Servlet Lifecycle.start()
+     */
+    private static KGrafaInstance singleton = null;
 
     public static KGrafaInstance getInstance(Properties propertes) {
-    if (singleton == null) {
+        if (singleton == null) {
 
-        if (propertes == null) {
-            throw new RuntimeException("KGrafa has not been initialized! -= pass in valid properties and init before use");
+            if (propertes == null) {
+                throw new RuntimeException("KGrafa has not been initialized! -= pass in valid properties and init before use");
+            }
+            KafkaTopicClientImpl topicClient = getKafkaTopicClient(propertes);
+
+
+            SimpleKGrafa kgrafa = new SimpleKGrafa(
+                    topicClient,
+                    propertes.getProperty("prefix", "kgrafana"),
+                    propertes.getProperty("bootstrap.servers", "localhost:9092"),
+                    Integer.valueOf(propertes.getProperty("numPartitions", "2")),
+                    Short.valueOf(propertes.getProperty("numReplicas", "1")
+                    ));
+
+            kgrafa.start();
+            singleton = new KGrafaInstance(kgrafa);
+            return singleton;
         }
-      KafkaTopicClientImpl topicClient = getKafkaTopicClient(propertes);
-
-      Integer numPartitions = Integer.valueOf(propertes.getProperty("numPartitions", "3"));
-      Short numReplicas = Short.valueOf(propertes.getProperty("numReplicas", "1"));
-
-        SimpleKGrafa kgrafa = new SimpleKGrafa(
-              topicClient,
-              Integer.valueOf(propertes.getProperty("numPriorities", "9")),
-              propertes.getProperty("prefix", "kgrafana"),
-              propertes.getProperty("bootstrap.servers", "localhost:9092"),
-              numPartitions, numReplicas
-              );
-
-        kgrafa.start();
-        singleton = new KGrafaInstance(kgrafa);
         return singleton;
     }
-    return singleton;
-  }
 
-  public static KafkaTopicClientImpl getKafkaTopicClient(Properties propertes) {
-    Properties consumerConfig = new Properties();
-    consumerConfig.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, propertes.getProperty("bootstrap.servers", "localhost:9092"));
-    consumerConfig.put(ConsumerConfig.GROUP_ID_CONFIG, propertes.getProperty("prefix", "kgrafana"));
-    consumerConfig.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-    consumerConfig.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
+    public static KafkaTopicClientImpl getKafkaTopicClient(Properties propertes) {
+        Properties consumerConfig = new Properties();
+        consumerConfig.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, propertes.getProperty("bootstrap.servers", "localhost:9092"));
+        consumerConfig.put(ConsumerConfig.GROUP_ID_CONFIG, propertes.getProperty("prefix", "kgrafana"));
+        consumerConfig.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        consumerConfig.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
 
-    KsqlConfig ksqlConfig = new KsqlConfig(consumerConfig);
+        KsqlConfig ksqlConfig = new KsqlConfig(consumerConfig);
 
-    Map<String, Object> ksqlAdminClientConfigProps = ksqlConfig.getKsqlAdminClientConfigProps();
+        Map<String, Object> ksqlAdminClientConfigProps = ksqlConfig.getKsqlAdminClientConfigProps();
 
-    AdminClient adminClient = AdminClient.create(ksqlAdminClientConfigProps);
-    return new KafkaTopicClientImpl(adminClient);
-  }
+        AdminClient adminClient = AdminClient.create(ksqlAdminClientConfigProps);
+        return new KafkaTopicClientImpl(adminClient);
+    }
 
 
     private KafkaProducer<String, Metric> producer;
@@ -124,7 +127,6 @@ public class KGrafaInstance {
     private Properties producerConfig() {
         Properties producerConfig = new Properties();
         producerConfig.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"));
-//    producerConfig.put(ProducerConfig.ACKS_CONFIG, "all");
         producerConfig.put(ProducerConfig.RETRIES_CONFIG, 0);
         return producerConfig;
     }

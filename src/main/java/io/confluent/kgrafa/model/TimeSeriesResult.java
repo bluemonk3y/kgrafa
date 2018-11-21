@@ -80,8 +80,9 @@ public class TimeSeriesResult {
     return rr.substring(0, rr.length()-1);
   }
 
-  public void setValues(List<MetricStats> metrics) {
+  public void setValues(String name, List<MetricStats> metrics) {
 
+    this.setTarget(name);
     long[][] datapoints = new long[metrics.size()][0];
 
     int i = 0;

@@ -30,7 +30,7 @@ public class SimpleMetricsTest {
     testHarness = new IntegrationTestHarness();
     testHarness.start();
 
-    kgrafa = new SimpleKGrafa(testHarness.getTopicClient(), 5, "KWQ", testHarness.embeddedKafkaCluster.bootstrapServers(), 1, (short)1);
+      kgrafa = new SimpleKGrafa(testHarness.getTopicClient(), "KWQ", testHarness.embeddedKafkaCluster.bootstrapServers(), 1, (short) 1);
 
     kgrafa.start();
   }

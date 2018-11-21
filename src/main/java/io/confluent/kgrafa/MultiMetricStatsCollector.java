@@ -26,34 +26,37 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import static io.confluent.kgrafa.model.metric.MetricStats.MetricStatsSerde;
 
-public class MetricStatsCollector {
-    private static final Logger log = LoggerFactory.getLogger(MetricStatsCollector.class);
+/**
+ * Pulls a single topics set of metrics
+ */
+public class MultiMetricStatsCollector {
+    private static final Logger log = LoggerFactory.getLogger(MultiMetricStatsCollector.class);
 
-    public static final int RETENTION = 1000;
     private final Topology topology;
-    private MetricStats currentWindowStats;
     private final Properties streamsConfig;
     private long startTime;
     private long endTime;
     private KafkaStreams streams;
-    private final Queue<MetricStats> stats = new ConcurrentLinkedQueue<>();
+    private final Map<String, Map<Long, MetricStats>> stats = new TreeMap<>();
     private long windowDuration;
     private long processedLast = 0;
 
-    public MetricStatsCollector(final String topic, final Properties streamsConfig, final long windowDuration, final long startTime, final long endTime) {
+
+    // TODO: consider passing in metric filter for filtering against specific metric name
+    public MultiMetricStatsCollector(final List<String> topics, final Properties streamsConfig, final long windowDuration, final long startTime, final long endTime) {
         this.streamsConfig = streamsConfig;
         this.startTime = startTime;
         this.endTime = endTime;
         this.windowDuration = windowDuration;
-        this.topology = buildTopology(topic);
+
+        this.topology = buildTopology(topics);
+
     }
 
-    private Topology buildTopology(final String metricTopic) {
+    private Topology buildTopology(final List<String> metricTopic) {
         StreamsBuilder builder = new StreamsBuilder();
         KStream<String, Metric> tasks = builder.stream(metricTopic);
 
@@ -61,7 +64,7 @@ public class MetricStatsCollector {
 
         KTable<Windowed<String>, MetricStats> windowedTaskStatsKTable = tasks
                 .filter((key, value) -> value.getTime() >= startTime && value.getTime() <= endTime)
-                .groupBy((key, value) -> "agg-all-values")
+                .groupByKey()
                 .windowedBy(TimeWindows.of(windowDuration))
                 .aggregate(
                         MetricStats::new,
@@ -70,22 +73,12 @@ public class MetricStatsCollector {
                 );
 
         /**
-         * accumulate the final value of each window threshold
+         * Accumulate each window event internally by tracking the window as part of the aggregation
          */
-        windowedTaskStatsKTable.toStream().foreach((key, value) -> {
-                    log.debug("Processing:{} time:{}", value, key.window().end());
+        windowedTaskStatsKTable.toStream().foreach((key, metricStats) -> {
+                    System.out.println("Agg:" + key.key());
                     processedLast = key.window().end();
-                    if (currentWindowStats != null && key.window().end() != currentWindowStats.getTime()) {
-                        log.debug("Next Window:{} time:{}", currentWindowStats, key.window().end());
-                        stats.add(currentWindowStats);
-                        if (stats.size() > RETENTION) {
-                            stats.remove();
-                        }
-                    } else {
-                        log.debug("Accumulate");
-                    }
-                    currentWindowStats = value;
-                    currentWindowStats.setTime(key.window().end());
+                    stats.computeIfAbsent(key.key(), k -> new LinkedHashMap<>()).computeIfAbsent(key.window().end(), k -> metricStats.set(key.key(), key.window().end()));
                 }
         );
         return builder.build();
@@ -101,17 +94,13 @@ public class MetricStatsCollector {
         streams.cleanUp();
     }
 
-    public List<MetricStats> getMetrics() {
-        if (currentWindowStats != null && currentWindowStats.getTime() < System.currentTimeMillis() - (windowDuration * 1000)) {
-            stats.add(currentWindowStats);
-            currentWindowStats = null;
-        } else if (currentWindowStats == null) {
-            currentWindowStats = new MetricStats();
-            currentWindowStats.setTime(System.currentTimeMillis() - (windowDuration * 1000));
+    public List<List<MetricStats>> getMetrics() {
+        List<List<MetricStats>> results = new ArrayList<>();
+        for (Map.Entry<String, Map<Long, MetricStats>> entry : stats.entrySet()) {
+            ArrayList<MetricStats> metricStats1 = new ArrayList<>(entry.getValue().values());
+            Collections.reverse(metricStats1);
+            results.add(metricStats1);
         }
-        CopyOnWriteArrayList results = new CopyOnWriteArrayList<>(stats);
-        if (currentWindowStats != null) results.add(currentWindowStats);
-        Collections.reverse(results);
         return results;
     }
 

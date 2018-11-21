@@ -18,6 +18,7 @@ package io.confluent.kgrafa;
 import io.confluent.kgrafa.model.*;
 import io.confluent.kgrafa.model.metric.Metric;
 import io.confluent.kgrafa.model.metric.MetricSerDes;
+import io.confluent.kgrafa.model.metric.MetricStats;
 import io.confluent.kgrafa.model.search.Target;
 import io.confluent.kgrafa.util.KafkaTopicClientImpl;
 import io.confluent.ksql.util.KsqlConfig;
@@ -31,6 +32,8 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.errors.LogAndContinueExceptionHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
@@ -57,6 +60,7 @@ import java.util.*;
 @Produces(MediaType.APPLICATION_JSON)
 
 public class KGrafaResource {
+    private static final Logger log = LoggerFactory.getLogger(KGrafaResource.class);
 
     static String metricPrefix = "metrics";
     private final KGrafaInstance instance;
@@ -228,9 +232,9 @@ public class KGrafaResource {
             })
     public String query(@Parameter(description = "query sent from the dashboard", required = true) Query query) {
 
-        System.out.println("Got:" + query);
+        log.debug("Got:{}", query);
         try {
-            MetricStatsCollector metricStatsCollector = new MetricStatsCollector(query.getTargets()[0].getTarget(), streamsProperties(), query.getIntervalAsMillis(), query.getRange().getStart(), query.getRange().getEnd());
+            MultiMetricStatsCollector metricStatsCollector = new MultiMetricStatsCollector(query.getTargetsAsList(), streamsProperties(), query.getIntervalAsMillis(), query.getRange().getStart(), query.getRange().getEnd());
 
             metricStatsCollector.start();
             metricStatsCollector.waitUntilReady();
@@ -238,13 +242,17 @@ public class KGrafaResource {
 
             ArrayList<TimeSeriesResult> results = new ArrayList<>();
 
-            TimeSeriesResult timeSeriesResult = new TimeSeriesResult();
-            timeSeriesResult.setTarget(query.getTargets()[0].getTarget());
-            timeSeriesResult.setValues(metricStatsCollector.getMetrics());
-            results.add(timeSeriesResult);
+            List<List<MetricStats>> metrics = metricStatsCollector.getMetrics();
+
+            for (List<MetricStats> metric : metrics) {
+                TimeSeriesResult timeSeriesResult = new TimeSeriesResult();
+                timeSeriesResult.setValues(metric.get(0).getName(), metric);
+                log.debug("TimeSeries Metric:{} \tpoints:{}", metric.get(0).getName(), metric.size());
+                results.add(timeSeriesResult);
+            }
+
             // moxy doesnt support multi-dimensional arrays so drop back to a json-string and rely on json response type
             // https://bugs.eclipse.org/bugs/show_bug.cgi?id=389815
-            System.out.println(results.toString());
             return results.toString();
 
         } catch (Throwable t) {
@@ -286,7 +294,6 @@ public class KGrafaResource {
 
         List<String> topics = new ArrayList<>(instance.getInstance().listTopics(new String[]{metricPrefix, ""}));
         Collections.sort(topics);
-
 
 //        return "{" +
 //                "\n {\n" +
@@ -342,11 +349,13 @@ public class KGrafaResource {
         long interval = 1000;
 
 
+        int i = 100;
         for (long t = startTime; t < endTime; t += interval) {
-            double value = (Math.random() * 100.0) * t / 100000;
+            double value = Math.random() * t / (1000 * 1000 * 1000);
+            value += i * 100;
             Metric metric = new Metric(metricPrefix, request.getSource(), request.getResource(), request.getMetric(), value, t);
             putMetric(metric);
-            System.out.println("Created:" + metric);
+            i++;
         }
 
         return "{" +

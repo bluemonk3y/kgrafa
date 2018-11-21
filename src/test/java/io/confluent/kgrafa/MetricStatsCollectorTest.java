@@ -14,51 +14,54 @@ import org.apache.kafka.streams.TopologyTestDriver;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 public class MetricStatsCollectorTest {
 
     @Test
-    public void getTotalWindowEventsForOneSecBucket() throws Exception {
-        process(1000, 1, 6);
+    public void multiTopicTotalWindowEventsForOneSecBucket() throws Exception {
+        processMultiMetricTopic(new String[]{"topic-1", "topic-2"}, 1000, 1, 6);
     }
+
 
     @Test
-    public void getTotalWindowEventsForTenSecBucket() throws Exception {
-        process(10000, 6, 1);
+    public void multiTopicTotalWindowEventsForTenSecBucket() throws Exception {
+        processMultiMetricTopic(new String[]{"topic-1", "topic-2"}, 10000, 1, 1);
     }
 
-    public void process(int windowDuration, int metricsPerFirstStat, int totalBuckets) throws Exception {
+    private void processMultiMetricTopic(String[] topics, int windowDuration, int metricsPerFirstStat, int totalBuckets) throws Exception {
 
         Properties streamsConfig = getProperties("localhost:9091");
 
 
-        MetricStatsCollector metricStatsCollector = new MetricStatsCollector("TestTopic", streamsConfig, windowDuration, 0, System.currentTimeMillis());
+        MultiMetricStatsCollector metricStatsCollector = new MultiMetricStatsCollector(Arrays.asList(topics), streamsConfig, windowDuration, 0, System.currentTimeMillis());
 
         Topology topology = metricStatsCollector.getTopology();
 
         TopologyTestDriver driver = new TopologyTestDriver(topology, streamsConfig);
 
-        Map<String, Metric> sourceData = MetricDataProvider.data;
-
+        Map<String, Metric> sourceData = MetricDataProvider.data(totalBuckets);
 
         int i = 0;
+
+        Set<String> metrics = new HashSet<>();
         MetricSerDes serDes = new MetricSerDes();
-        for (Map.Entry<String, Metric> entry : sourceData.entrySet()) {
-            ConsumerRecord consumerRecord = new ConsumerRecord("TestTopic", 0, i, entry.getValue().getTime(), TimestampType.CREATE_TIME, 1, 1, 1, entry.getKey().getBytes(), serDes.serialize("", entry.getValue()));
-            driver.pipeInput(consumerRecord);
+        for (Metric entry : sourceData.values()) {
+            for (String topic : topics) {
+                entry.setName(topic + "_" + entry.getName());
+                ConsumerRecord consumerRecord = new ConsumerRecord(topic, 0, i, entry.getTime(), TimestampType.CREATE_TIME, 1, 1, 1, entry.getName().getBytes(), serDes.serialize("", entry));
+                driver.pipeInput(consumerRecord);
+                metrics.add(entry.getName());
+            }
         }
         driver.close();
 
-        List<MetricStats> metricStats = metricStatsCollector.getMetrics();
+        List<List<MetricStats>> metricStats = metricStatsCollector.getMetrics();
 
-        // read the current throughput -= should be 1
-        MetricStats next = metricStats.iterator().next();
-        System.out.println("GOT:::" + metricStats.size());
+        Assert.assertEquals(metrics.size(), metricStats.size());
+        MetricStats next = metricStats.get(0).get(0);
         Assert.assertEquals(next.toString(), metricsPerFirstStat, next.getTotal());
-        Assert.assertEquals(totalBuckets, metricStats.size());
+        Assert.assertEquals(metricStats.get(0).toString(), totalBuckets, metricStats.get(0).size());
 
     }
 

@@ -24,4 +24,12 @@ public class Target {
   public String getTarget() {
     return target;
   }
+
+    @Override
+    public String toString() {
+        return "Target{" +
+                "refId='" + refId + '\'' +
+                ", target='" + target + '\'' +
+                '}';
+    }
 }

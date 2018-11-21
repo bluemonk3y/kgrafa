@@ -37,7 +37,6 @@ public class MetricSerDes implements Serde<Metric>, Serializer<Metric>, Deserial
       JsonNode jsonNode = this.objectMapper.readTree(bytes);
         Metric metric = new Metric(null, "", jsonNode.get("resource").asText(), null, jsonNode.get("value").asDouble(), jsonNode.get("time").asLong());
         metric.setName(jsonNode.get("name").asText());
-        System.out.println("RECORD:" + metric);
         return metric;
     } catch (IOException e) {
       throw new RuntimeException(e);

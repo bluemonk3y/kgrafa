@@ -15,7 +15,9 @@
  **/
 package io.confluent.kgrafa.model;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  {
@@ -103,5 +105,13 @@ public class Query {
             ", format='" + format + '\'' +
             ", maxDataPoints=" + maxDataPoints +
             '}';
+  }
+
+  public List<String> getTargetsAsList() {
+    ArrayList<String> results = new ArrayList<>();
+    for (Target target : targets) {
+      results.add(target.getTarget());
+    }
+    return results;
   }
 }
