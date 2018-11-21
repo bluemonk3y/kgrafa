@@ -234,6 +234,7 @@ public class KGrafaResource {
 
         log.debug("Got:{}", query);
         try {
+            long startTime = System.currentTimeMillis();
             MultiMetricStatsCollector metricStatsCollector = new MultiMetricStatsCollector(query.getTargetsAsList(), streamsProperties(), query.getIntervalAsMillis(), query.getRange().getStart(), query.getRange().getEnd());
 
             metricStatsCollector.start();
@@ -250,6 +251,8 @@ public class KGrafaResource {
                 log.debug("TimeSeries Metric:{} \tpoints:{}", metric.get(0).getName(), metric.size());
                 results.add(timeSeriesResult);
             }
+
+            log.debug("Completed in time:{}", System.currentTimeMillis() - startTime);
 
             // moxy doesnt support multi-dimensional arrays so drop back to a json-string and rely on json response type
             // https://bugs.eclipse.org/bugs/show_bug.cgi?id=389815

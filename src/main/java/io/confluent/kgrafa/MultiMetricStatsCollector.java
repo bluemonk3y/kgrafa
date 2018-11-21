@@ -42,7 +42,10 @@ public class MultiMetricStatsCollector {
     private KafkaStreams streams;
     private final Map<String, Map<Long, MetricStats>> stats = new TreeMap<>();
     private long windowDuration;
+
     private long processedLast = 0;
+    private long firstWhen = 0;
+    private long lastWhen = 0;
 
 
     // TODO: consider passing in metric filter for filtering against specific metric name
@@ -76,8 +79,11 @@ public class MultiMetricStatsCollector {
          * Accumulate each window event internally by tracking the window as part of the aggregation
          */
         windowedTaskStatsKTable.toStream().foreach((key, metricStats) -> {
-                    System.out.println("Agg:" + key.key());
                     processedLast = key.window().end();
+            if (firstWhen == 0) {
+                firstWhen = System.currentTimeMillis();
+            }
+            lastWhen = System.currentTimeMillis();
                     stats.computeIfAbsent(key.key(), k -> new LinkedHashMap<>()).computeIfAbsent(key.window().end(), k -> metricStats.set(key.key(), key.window().end()));
                 }
         );
@@ -110,14 +116,22 @@ public class MultiMetricStatsCollector {
 
     public void waitUntilReady() {
         try {
-            Thread.sleep(5000);
-            int waited = 0;
-            while (processedLast == 0 && waited++ < 2 && processedLast != 0 && processedLast < endTime) {
-                Thread.sleep(1000);
+            long startedWaiting = System.currentTimeMillis();
+            while (!finishedProcessing() && !waitedLongEnough(startedWaiting)) {
+                Thread.sleep(100);
             }
+            log.debug("DONE Waiting started:{} finished:{}  processedLast:{} endTime:{}", new Date(firstWhen), new Date(lastWhen), new Date(processedLast), new Date(endTime));
 
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+    }
+
+    private boolean waitedLongEnough(long startedWaiting) {
+        return System.currentTimeMillis() > startedWaiting + 2000;
+    }
+
+    private boolean finishedProcessing() {
+        return firstWhen != 0 && lastWhen != 0 && lastWhen < System.currentTimeMillis() - 200;
     }
 }

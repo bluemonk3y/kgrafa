@@ -50,6 +50,7 @@ public class EmbeddedSingleNodeKafkaCluster extends ExternalResource {
    */
   private EmbeddedSingleNodeKafkaCluster(Properties brokerConfig) {
     this.brokerConfig = new Properties();
+    this.brokerConfig.put("group.initial.rebalance.delay.ms", "500");
     this.brokerConfig.putAll(brokerConfig);
   }
 
