@@ -19,18 +19,18 @@ import io.confluent.kgrafa.model.metric.Metric;
 import io.confluent.kgrafa.model.metric.MetricSerDes;
 import io.confluent.kgrafa.util.KafkaTopicClientImpl;
 import io.confluent.kgrafa.util.LockfreeConcurrentQueue;
+import io.confluent.kgrafa.util.TimeSeeker;
 import io.confluent.ksql.util.KsqlConfig;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.serialization.StringSerializer;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -131,11 +131,24 @@ public class KGrafaInstance {
         return producerConfig;
     }
 
+    private Properties consumerConfig(String consumerId) {
+        Properties properties = producerConfig();
+        properties.put(ConsumerConfig.CLIENT_ID_CONFIG, consumerId);
+        return properties;
+    }
+
     public int add(Metric metric) {
         inputMetrics.add(metric);
         if (inputMetrics.size() > 1000) {
             flushMetrics();
         }
         return inputMetrics.size();
+    }
+
+    public void timeAlignConsumerOffSetForConsumerId(String consumerId, long timeStart, List<String> topics) {
+        KafkaConsumer<String, String> kafkaConsumer = new KafkaConsumer<>(consumerConfig(consumerId), Serdes.String().deserializer(), Serdes.String().deserializer());
+        TimeSeeker timeSeeker = new TimeSeeker(kafkaConsumer);
+        timeSeeker.seek(timeStart, topics);
+        kafkaConsumer.close();
     }
 }

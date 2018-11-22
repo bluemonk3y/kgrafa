@@ -235,7 +235,13 @@ public class KGrafaResource {
         log.debug("Got:{}", query);
         try {
             long startTime = System.currentTimeMillis();
-            MultiMetricStatsCollector metricStatsCollector = new MultiMetricStatsCollector(query.getTargetsAsList(), streamsProperties(), query.getIntervalAsMillis(), query.getRange().getStart(), query.getRange().getEnd());
+
+
+            Properties streamsConfig = streamsProperties();
+
+            instance.timeAlignConsumerOffSetForConsumerId(streamsConfig.getProperty(StreamsConfig.APPLICATION_ID_CONFIG), query.getRange().getStart(), query.getTargetsAsList());
+
+            MultiMetricStatsCollector metricStatsCollector = new MultiMetricStatsCollector(query.getTargetsAsList(), streamsConfig, query.getIntervalAsMillis(), query.getRange().getStart(), query.getRange().getEnd());
 
             metricStatsCollector.start();
             metricStatsCollector.waitUntilReady();
