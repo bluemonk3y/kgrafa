@@ -18,10 +18,12 @@ package io.confluent.kgrafa;
 import io.confluent.kgrafa.model.metric.Metric;
 import io.confluent.kgrafa.model.metric.MetricStats;
 import org.apache.kafka.common.serialization.Serdes;
+import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.kstream.*;
+import org.apache.kafka.streams.state.WindowStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,6 +67,11 @@ public class MultiMetricStatsCollector {
 
         log.debug("Duration:" + windowDuration + "ms " + new Date(startTime) + " - " + new Date(endTime) + " Topic: " + metricTopic + " Window:" + windowDuration);
 
+        Materialized<String, MetricStats, WindowStore<Bytes, byte[]>> ss1 = Materialized.with(new Serdes.StringSerde(), new MetricStatsSerde());
+        Materialized<String, MetricStats, WindowStore<Bytes, byte[]>> ss2 = ss1.withCachingDisabled().withLoggingDisabled();
+
+        // Note: The consumer-id is already positioned to the start time for all TopicPartitions.
+        // this will mean it starts from the right offset - but will also rely on the filter as it goes past the end
         KTable<Windowed<String>, MetricStats> windowedTaskStatsKTable = tasks
                 .filter((key, value) -> value.getTime() >= startTime && value.getTime() <= endTime)
                 .groupByKey()
@@ -72,7 +79,7 @@ public class MultiMetricStatsCollector {
                 .aggregate(
                         MetricStats::new,
                         (key, value, aggregate) -> aggregate.add(value),
-                        Materialized.with(new Serdes.StringSerde(), new MetricStatsSerde())
+                        ss2
                 );
 
         /**
