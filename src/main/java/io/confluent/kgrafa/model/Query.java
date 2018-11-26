@@ -110,7 +110,7 @@ public class Query {
     }
 
     public List<String> getTopicsFromTargets() {
-        return Arrays.stream(targets).map(item -> Metric.getPathAsTopic(item.getTargetTopic())).collect(Collectors.toList());
+        return Arrays.stream(targets).map(item -> item.getTargetTopic()).collect(Collectors.toList());
     }
 
     public boolean passesFilter(Metric metric) {

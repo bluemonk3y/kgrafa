@@ -66,7 +66,7 @@ public class MultiMetricStatsCollector {
         log.debug("Duration:" + windowDuration + "ms " + new Date(queryRange.getStart()) + " - " + new Date(queryRange.getEnd()) + " Topic: " + metricTopic + " Window:" + windowDuration);
 
         Materialized<String, MultiMetricStats, WindowStore<Bytes, byte[]>> ss1 = Materialized.with(new Serdes.StringSerde(), new MetricStats.MultiMetricStatsSerde());
-        Materialized<String, MultiMetricStats, WindowStore<Bytes, byte[]>> ss2 = ss1.withCachingDisabled().withLoggingDisabled();
+        Materialized<String, MultiMetricStats, WindowStore<Bytes, byte[]>> ss2 = ss1.withLoggingDisabled().withCachingDisabled();
 
         // Note: The consumer-id is already positioned to the start time for all TopicPartitions.
         // this will mean it starts from the right offset - but will also rely on the filter as it goes past the end
@@ -78,7 +78,7 @@ public class MultiMetricStatsCollector {
                 .aggregate(
                         MultiMetricStats::new,
                         (key, value, aggregate) -> aggregate.addIt(value),
-                        ss1
+                        ss2
                 );
 
         /**
