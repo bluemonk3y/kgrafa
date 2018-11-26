@@ -17,11 +17,8 @@ package io.confluent.kgrafa;
 
 import io.confluent.kgrafa.util.KafkaTopicClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
@@ -32,16 +29,12 @@ import java.util.stream.Collectors;
  * Note: This impl relies on auto-commit; as a result - if killed, it can potentially lose messages that were held in-memory, but not yet dispatched.
  */
 public class SimpleKGrafa implements KGrafa {
-    private static final int CONSUMER_POLL_TIMEOUT_MS = 100;
-    private static final long IDLE_WAIT_MS = 1000L;
 
 
     private final String prefix;
     private String bootstrapServers;
     private final int numPartitions;
     private final short replicationFactor;
-    private final List<KafkaConsumer> consumers = new ArrayList<>();
-    private KafkaProducer producer = null;
 
     private final KafkaTopicClient topicClient;
 
@@ -53,13 +46,6 @@ public class SimpleKGrafa implements KGrafa {
         this.topicClient = topicClient;
     }
 
-
-    public void start() {
-    }
-
-    @Override
-    public void pause() {
-    }
 
     @Override
     public String status() {

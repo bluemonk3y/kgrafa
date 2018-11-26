@@ -16,4 +16,11 @@ public class Target {
     public String getTarget() {
         return target;
     }
+
+    public boolean matches(String metricQuery) {
+        // TODO: compile the pattern
+        String[] s = metricQuery.split(" ");
+
+        return false;
+    }
 }

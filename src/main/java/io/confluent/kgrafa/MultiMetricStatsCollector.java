@@ -15,8 +15,11 @@
  **/
 package io.confluent.kgrafa;
 
+import io.confluent.kgrafa.model.Query;
+import io.confluent.kgrafa.model.Range;
 import io.confluent.kgrafa.model.metric.Metric;
 import io.confluent.kgrafa.model.metric.MetricStats;
+import io.confluent.kgrafa.model.metric.MultiMetricStats;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.KafkaStreams;
@@ -29,8 +32,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-import static io.confluent.kgrafa.model.metric.MetricStats.MetricStatsSerde;
-
 /**
  * Pulls a single topics set of metrics
  */
@@ -39,10 +40,8 @@ public class MultiMetricStatsCollector {
 
     private final Topology topology;
     private final Properties streamsConfig;
-    private long startTime;
-    private long endTime;
     private KafkaStreams streams;
-    private final Map<String, Map<Long, MetricStats>> stats = new TreeMap<>();
+    private final Map<String, Map<Long, MultiMetricStats>> stats = new TreeMap<>();
     private long windowDuration;
 
     private long processedLast = 0;
@@ -51,35 +50,35 @@ public class MultiMetricStatsCollector {
 
 
     // TODO: consider passing in metric filter for filtering against specific metric name
-    public MultiMetricStatsCollector(final List<String> topics, final Properties streamsConfig, final long windowDuration, final long startTime, final long endTime) {
+    public MultiMetricStatsCollector(final Collection<String> topics, final Query query, final Properties streamsConfig, final long windowDuration) {
         this.streamsConfig = streamsConfig;
-        this.startTime = startTime;
-        this.endTime = endTime;
         this.windowDuration = windowDuration;
 
-        this.topology = buildTopology(topics);
+        this.topology = buildTopology(topics, query);
 
     }
 
-    private Topology buildTopology(final List<String> metricTopic) {
+    private Topology buildTopology(final Collection<String> metricTopic, Query query) {
         StreamsBuilder builder = new StreamsBuilder();
         KStream<String, Metric> tasks = builder.stream(metricTopic);
+        Range queryRange = query.getRange();
 
-        log.debug("Duration:" + windowDuration + "ms " + new Date(startTime) + " - " + new Date(endTime) + " Topic: " + metricTopic + " Window:" + windowDuration);
+        log.debug("Duration:" + windowDuration + "ms " + new Date(queryRange.getStart()) + " - " + new Date(queryRange.getEnd()) + " Topic: " + metricTopic + " Window:" + windowDuration);
 
-        Materialized<String, MetricStats, WindowStore<Bytes, byte[]>> ss1 = Materialized.with(new Serdes.StringSerde(), new MetricStatsSerde());
-        Materialized<String, MetricStats, WindowStore<Bytes, byte[]>> ss2 = ss1.withCachingDisabled().withLoggingDisabled();
+        Materialized<String, MultiMetricStats, WindowStore<Bytes, byte[]>> ss1 = Materialized.with(new Serdes.StringSerde(), new MetricStats.MultiMetricStatsSerde());
+        Materialized<String, MultiMetricStats, WindowStore<Bytes, byte[]>> ss2 = ss1.withCachingDisabled().withLoggingDisabled();
 
         // Note: The consumer-id is already positioned to the start time for all TopicPartitions.
         // this will mean it starts from the right offset - but will also rely on the filter as it goes past the end
-        KTable<Windowed<String>, MetricStats> windowedTaskStatsKTable = tasks
-                .filter((key, value) -> value.getTime() >= startTime && value.getTime() <= endTime)
+        KTable<Windowed<String>, MultiMetricStats> windowedTaskStatsKTable = tasks
+                // TODO: Add filter against other metric parmeters
+                .filter((key, value) -> query.passesFilter(value))
                 .groupByKey()
                 .windowedBy(TimeWindows.of(windowDuration))
                 .aggregate(
-                        MetricStats::new,
-                        (key, value, aggregate) -> aggregate.add(value),
-                        ss2
+                        MultiMetricStats::new,
+                        (key, value, aggregate) -> aggregate.addIt(value),
+                        ss1
                 );
 
         /**
@@ -91,7 +90,9 @@ public class MultiMetricStatsCollector {
                 firstWhen = System.currentTimeMillis();
             }
             lastWhen = System.currentTimeMillis();
-                    stats.computeIfAbsent(key.key(), k -> new LinkedHashMap<>()).computeIfAbsent(key.window().end(), k -> metricStats.set(key.key(), key.window().end()));
+            //System.out.println("Processing" + " key:" + key.key() + " time:" + key.window().end() + " ---" + metricStats);
+            Map<Long, MultiMetricStats> longMultiMetricStatsMap = stats.computeIfAbsent(key.key(), k -> new LinkedHashMap<>());
+            longMultiMetricStatsMap.put(key.window().end(), metricStats);
                 }
         );
         return builder.build();
@@ -109,10 +110,15 @@ public class MultiMetricStatsCollector {
 
     public List<List<MetricStats>> getMetrics() {
         List<List<MetricStats>> results = new ArrayList<>();
-        for (Map.Entry<String, Map<Long, MetricStats>> entry : stats.entrySet()) {
-            ArrayList<MetricStats> metricStats1 = new ArrayList<>(entry.getValue().values());
-            Collections.reverse(metricStats1);
-            results.add(metricStats1);
+        for (Map.Entry<String, Map<Long, MultiMetricStats>> mmEntry : stats.entrySet()) {
+            ArrayList<MetricStats> metricStats = new ArrayList<>();
+
+            for (Map.Entry<Long, MultiMetricStats> value : mmEntry.getValue().entrySet()) {
+                value.getValue().stats.values().forEach(stat -> stat.setTime(value.getKey().longValue()));
+                ArrayList<MetricStats> metricStats1 = new ArrayList<>(value.getValue().stats.values());
+                metricStats.addAll(metricStats1);
+            }
+            results.add(metricStats);
         }
         return results;
     }
@@ -127,7 +133,7 @@ public class MultiMetricStatsCollector {
             while (!finishedProcessing() && !waitedLongEnough(startedWaiting)) {
                 Thread.sleep(100);
             }
-            log.debug("DONE Waiting started:{} finished:{}  processedLast:{} endTime:{}", new Date(firstWhen), new Date(lastWhen), new Date(processedLast), new Date(endTime));
+            log.debug("DONE Waiting started:{} finished:{}  processedLast:{} endTime:{}", new Date(firstWhen), new Date(lastWhen), new Date(processedLast));
 
         } catch (InterruptedException e) {
             e.printStackTrace();

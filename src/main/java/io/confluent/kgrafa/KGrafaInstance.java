@@ -52,6 +52,9 @@ public class KGrafaInstance {
         return kgrafana;
     }
 
+
+    Set<String> metrics = new LinkedHashSet<>();
+
     synchronized public void flushMetrics() {
         KafkaProducer producer = getProducer();
 
@@ -59,13 +62,17 @@ public class KGrafaInstance {
         while (!inputMetrics.isEmpty()) {
             Metric metric = inputMetrics.remove();
 
-            createdTopics.computeIfAbsent(metric.getName(), k -> {
-                getInstance().createTopic(metric.getName());
-                return metric.getName();
+            String pathAsTopic = metric.getPathAsTopic(metric.path());
+            metrics.add(metric.canonicalName());
+
+            createdTopics.computeIfAbsent(pathAsTopic, k -> {
+                getInstance().createTopic(pathAsTopic);
+                return pathAsTopic;
             });
 
-            producer.send(new ProducerRecord(metric.getName(), getInstance().getNumPartitions() - 1 % metric.getName().hashCode(), metric.getTime(), metric.getName(), metric));
+            producer.send(new ProducerRecord(pathAsTopic, getInstance().getNumPartitions() - 1 % pathAsTopic.hashCode(), metric.getTime(), metric.getKey(), metric));
         }
+        if (createdTopics.size() > 0) System.out.println("Created:" + createdTopics);
         producer.flush();
     }
 
@@ -92,7 +99,6 @@ public class KGrafaInstance {
                     Short.valueOf(propertes.getProperty("numReplicas", "1")
                     ));
 
-            kgrafa.start();
             singleton = new KGrafaInstance(kgrafa);
             return singleton;
         }
@@ -145,10 +151,16 @@ public class KGrafaInstance {
         return inputMetrics.size();
     }
 
-    public void timeAlignConsumerOffSetForConsumerId(String consumerId, long timeStart, List<String> topics) {
+    public void timeAlignConsumerOffSetForConsumerId(String consumerId, long timeStart, Collection<String> topics) {
         KafkaConsumer<String, String> kafkaConsumer = new KafkaConsumer<>(consumerConfig(consumerId), Serdes.String().deserializer(), Serdes.String().deserializer());
         TimeSeeker timeSeeker = new TimeSeeker(kafkaConsumer);
         timeSeeker.seek(timeStart, topics);
         kafkaConsumer.close();
+    }
+
+    public List<String> getMetrics() {
+        ArrayList<String> results = new ArrayList<>(metrics);
+        Collections.sort(results);
+        return results;
     }
 }

@@ -19,6 +19,7 @@ import io.confluent.kgrafa.model.*;
 import io.confluent.kgrafa.model.metric.Metric;
 import io.confluent.kgrafa.model.metric.MetricSerDes;
 import io.confluent.kgrafa.model.metric.MetricStats;
+import io.confluent.kgrafa.model.metric.MetricWithContext;
 import io.confluent.kgrafa.model.search.Target;
 import io.confluent.kgrafa.util.KafkaTopicClientImpl;
 import io.confluent.ksql.util.KsqlConfig;
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Handles
@@ -74,36 +76,6 @@ public class KGrafaResource {
      *
      * @return
      */
-
-
-    @POST
-    @Path("/search")
-    @Operation(summary = "used by panels to get field names i.e. upper_25 etc",
-            tags = {"query"},
-            responses = {
-                    @ApiResponse(content = @Content(schema = @Schema(implementation = String.class))),
-                    @ApiResponse(responseCode = "405", description = "Invalid input")
-            })
-    public String search(@Parameter(description = "query sent from the dashboard", required = true) Target query) {
-
-        // 1 - start with metrics prefix,
-        // 2 - check for existence of other specified tags
-
-        List<String> topics = instance.getInstance().listTopics(new String[]{metricPrefix, query.getTarget()});
-
-        StringBuilder results = new StringBuilder("[");
-        for (int i = 0; i < topics.size(); i++) {
-            results.append("\"").append(topics.get(i)).append("\"");
-
-            if (i < topics.size() - 1) results.append(",");
-        }
-        results.append("]");
-//      String v1 = "[ \"upper_25\"]";
-        // moxy bug doesnt handle String[] type
-        return results.toString();
-
-
-    }
 
     @POST
     @Path("/annotations")
@@ -183,6 +155,44 @@ public class KGrafaResource {
     }
 
 
+    @POST
+    @Path("/search")
+    @Operation(summary = "used by panels to get field names i.e. upper_25 etc",
+            tags = {"query"},
+            responses = {
+                    @ApiResponse(content = @Content(schema = @Schema(implementation = String.class))),
+                    @ApiResponse(responseCode = "405", description = "Invalid input")
+            })
+    public String search(@Parameter(description = "query used to filter the returned list of availavle metrics for a panel", required = true) Target query) {
+
+        // 1 - start with metrics prefix,
+        // 2 - check for existence of other specified tags
+
+        List<String> filteredTopics = findMetricTopicsForQuery(Arrays.asList(query.getTarget()));
+
+
+        StringBuilder results = new StringBuilder("[");
+
+        for (int i = 0; i < filteredTopics.size(); i++) {
+            results.append("\"").append(filteredTopics.get(i)).append("\"");
+            if (i < filteredTopics.size() - 1) results.append(",");
+        }
+        results.append("]");
+//      String v1 = "[ \"upper_25\"]";
+        // moxy bug doesnt handle String[] type
+        return results.toString();
+    }
+
+    private List<String> findMetricTopicsForQuery(List<String> queries) {
+        List<String> metricTopics = instance.getMetrics();
+        List<String> results = new ArrayList<>();
+        for (String query : queries) {
+            results.addAll(metricTopics.stream().filter(topic -> Metric.isPathMatch(topic, query)).collect(Collectors.toList()));
+        }
+        return results;
+    }
+
+
     /**
      * New one!
      * { panelId: 2,
@@ -224,13 +234,13 @@ public class KGrafaResource {
 
     @POST
     @Path("/query")
-    @Operation(summary = "used by panels to get data",
+    @Operation(summary = "returns time-series or table data for a panel",
             tags = {"query"},
             responses = {
                     @ApiResponse(content = @Content(schema = @Schema(implementation = String.class))),
                     @ApiResponse(responseCode = "405", description = "Invalid input")
             })
-    public String query(@Parameter(description = "query sent from the dashboard", required = true) Query query) {
+    public String query(@Parameter(description = "time-series or table query sent from the dashboard", required = true) Query query) {
 
         log.debug("Got:{}", query);
         try {
@@ -239,9 +249,12 @@ public class KGrafaResource {
 
             Properties streamsConfig = streamsProperties();
 
-            instance.timeAlignConsumerOffSetForConsumerId(streamsConfig.getProperty(StreamsConfig.APPLICATION_ID_CONFIG), query.getRange().getStart(), query.getTargetsAsList());
+            // Convert the requested query strings into valid Kafka Topics
+            Set<String> topicsForQuery = findMetricTopicsForQuery(query.getTopicsFromTargets()).stream().map(item -> Metric.getPathAsTopic(item)).collect(Collectors.toSet());
 
-            MultiMetricStatsCollector metricStatsCollector = new MultiMetricStatsCollector(query.getTargetsAsList(), streamsConfig, query.getIntervalAsMillis(), query.getRange().getStart(), query.getRange().getEnd());
+            instance.timeAlignConsumerOffSetForConsumerId(streamsConfig.getProperty(StreamsConfig.APPLICATION_ID_CONFIG), query.getRange().getStart(), topicsForQuery);
+
+            MultiMetricStatsCollector metricStatsCollector = new MultiMetricStatsCollector(topicsForQuery, query, streamsConfig, query.getIntervalAsMillis());
 
             metricStatsCollector.start();
             metricStatsCollector.waitUntilReady();
@@ -260,6 +273,7 @@ public class KGrafaResource {
 
             log.debug("Completed in time:{}", System.currentTimeMillis() - startTime);
 
+//            System.out.println(results.toString());
             // moxy doesnt support multi-dimensional arrays so drop back to a json-string and rely on json response type
             // https://bugs.eclipse.org/bugs/show_bug.cgi?id=389815
             return results.toString();
@@ -329,15 +343,19 @@ public class KGrafaResource {
     @Produces("application/json")
     @Path("/generateRandomData")
     public String generateRandomData() {
-        String[] sources = {"emea-dc1"};
-        String[] resources = {"apollo", "nasa", "mars", "saturn-5", "lander-6", "mission-12", "apoloco"};
-        String[] metrics = {"cpu", "network", "latency"};
+        String[] sources = {"apollo", "nasa", "mars", "saturn-5", "lander-6", "mission-12", "apoloco"};
+        String[] resources = {"cpu", "network", "latency"};
+        String[] metrics = {"idle", "max", "min"};
 
-        for (String metric : metrics) {
-            for (String resource : resources) {
-                generateTestData(new GenerateRequest(sources[0], resource, metric, 60));
+        for (String source : sources) {
+            for (String metric : metrics) {
+                for (String resource : resources) {
+                    generateTestData(new GenerateRequest(source, resource, metric, 60));
+                }
             }
+
         }
+
 
         return "{" +
                 " \"response\":\"done\"\n" +
@@ -362,8 +380,9 @@ public class KGrafaResource {
         for (long t = startTime; t < endTime; t += interval) {
             double value = Math.random() * t / (1000 * 1000 * 1000);
             value += i * 100;
-            Metric metric = new Metric(metricPrefix, request.getSource(), request.getResource(), request.getMetric(), value, t);
-            putMetric(metric);
+            Metric metric = new Metric("", request.getResource(), request.getMetric(), value, t);
+            MetricWithContext metricWithContext = new MetricWithContext("biz-1", "production", "server-863_lx", request.getSource(), metric);
+            putMetric(metricWithContext);
             i++;
         }
 
@@ -375,8 +394,13 @@ public class KGrafaResource {
     @POST
     @Produces("application/json")
     @Path("/putMetric")
-    public String putMetric(@Parameter(description = "source host", required = true) Metric metric) {
-        int size = instance.add(metric);
+    public String putMetric(
+            @Parameter(description = "Metric with conext: tags, host and appId", required = true) MetricWithContext metric) {
+
+        Metric metric1 = metric.getMetric();
+        metric1.path(metric.getBizTag(), metric.getEnvTag(), metric.getHost(), metric.getAppId());
+//        metric.path(bizTag, envTag, host, appId);
+        int size = instance.add(metric1);
         return String.format("{ \"queue\": \"%d\"}", size);
     }
 

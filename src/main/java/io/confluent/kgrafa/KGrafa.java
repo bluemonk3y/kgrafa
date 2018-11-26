@@ -19,10 +19,6 @@ import java.util.List;
 
 interface KGrafa {
 
-    void pause();
-
-    void start();
-
     String status();
 
     List<String> listTopics(String[] filters);

@@ -195,6 +195,12 @@
             <!--<classifier>test</classifier> - dont use the test qualifier-->
         </dependency>
 
+        <dependency>
+            <groupId>io.prometheus.jmx</groupId>
+            <artifactId>collector</artifactId>
+            <version>0.10</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -220,7 +226,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.7.0</version>
                 <configuration>
-                    <resource>${java.version}</resource>
+                    <app>${java.version}</app>
                     <target>${java.version}</target>
                 </configuration>
             </plugin>
@@ -302,10 +308,10 @@
                         <configuration>
                             <outputDirectory>${basedir}/target/resources</outputDirectory>
                             <resources>
-                                <resource>
+                                <app>
                                     <directory>src/main/resources</directory>
                                     <filtering>false</filtering>
-                                </resource>
+                                </app>
                             </resources>
                         </configuration>
                     </execution>

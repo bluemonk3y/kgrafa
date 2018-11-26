@@ -16,41 +16,41 @@
 package io.confluent.kgrafa.model;
 
 /**
- *  "annotation": {
- *    *     "datasource": "generic datasource",
- *    *     "enable": true,
- *    *     "name": "annotation name"
- *    *   }
+ * "annotation": {
+ * *     "datasource": "generic datasource",
+ * *     "enable": true,
+ * *     "name": "annotation name"
+ * *   }
  */
 public class Annnotation {
-  private String datasource = "generic datasource";
-  private boolean enable = true;
-  private String name = "annotation name";
+    private String datasource = "generic datasource";
+    private boolean enable = true;
+    private String name = "annotation name";
 
-  public Annnotation(){
-  }
+    public Annnotation() {
+    }
 
-  public String getDatasource() {
-    return datasource;
-  }
+    public String getDatasource() {
+        return datasource;
+    }
 
-  public void setDatasource(String datasource) {
-    this.datasource = datasource;
-  }
+    public void setDatasource(String datasource) {
+        this.datasource = datasource;
+    }
 
-  public boolean isEnable() {
-    return enable;
-  }
+    public boolean isEnable() {
+        return enable;
+    }
 
-  public void setEnable(boolean enable) {
-    this.enable = enable;
-  }
+    public void setEnable(boolean enable) {
+        this.enable = enable;
+    }
 
-  public String getName() {
-    return name;
-  }
+    public String getName() {
+        return name;
+    }
 
-  public void setName(String name) {
-    this.name = name;
-  }
+    public void setName(String name) {
+        this.name = name;
+    }
 }

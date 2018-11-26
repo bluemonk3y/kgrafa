@@ -27,47 +27,47 @@ import java.util.Map;
 
 public class MetricSerDes implements Serde<Metric>, Serializer<Metric>, Deserializer<Metric> {
 
-  private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-  public Metric deserialize(String s, byte[] bytes) {
-    try {
-      if (bytes == null) {
-        throw new RuntimeException(this.getClass().getSimpleName() + ": Cannot read 'null' record for key:" + s);
-      }
-      JsonNode jsonNode = this.objectMapper.readTree(bytes);
-        Metric metric = new Metric(null, "", jsonNode.get("resource").asText(), null, jsonNode.get("value").asDouble(), jsonNode.get("time").asLong());
-        metric.setName(jsonNode.get("name").asText());
-        return metric;
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+    public Metric deserialize(String topic, byte[] bytes) {
+        try {
+            if (bytes == null) {
+                throw new RuntimeException(this.getClass().getSimpleName() + ": Cannot read 'null' record for key:" + topic);
+            }
+            JsonNode jsonNode = this.objectMapper.readTree(bytes);
+            Metric metric = new Metric("", jsonNode.get("resource").asText(), jsonNode.get("name").asText(), jsonNode.get("value").asDouble(), jsonNode.get("time").asLong());
+            metric.path(Metric.getTopicAsPath(topic));
+            return metric;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
-  }
 
-  @Override
-  public void configure(Map<String, ?> map, boolean b) {
+    @Override
+    public void configure(Map<String, ?> map, boolean b) {
 
-  }
-
-  public byte[] serialize(String s, Metric task) {
-    try {
-      return this.objectMapper.writeValueAsBytes(task);
-    } catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
     }
-  }
 
-  @Override
-  public void close() {
+    public byte[] serialize(String s, Metric task) {
+        try {
+            return this.objectMapper.writeValueAsBytes(task);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-  }
+    @Override
+    public void close() {
 
-  @Override
-  public Serializer<Metric> serializer() {
-    return this;
-  }
+    }
 
-  @Override
-  public Deserializer<Metric> deserializer() {
-    return this;
-  }
+    @Override
+    public Serializer<Metric> serializer() {
+        return this;
+    }
+
+    @Override
+    public Deserializer<Metric> deserializer() {
+        return this;
+    }
 }

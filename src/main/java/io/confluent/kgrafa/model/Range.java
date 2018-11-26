@@ -22,39 +22,38 @@ import java.util.Date;
  */
 public class Range {
 
-  private Date from = new Date(System.currentTimeMillis() - 60 * 1000);
-  private Date to = new Date();
+    private Date from = new Date(0);
+    private Date to = new Date();
 
-  public Range(){
+    public Range() {
+    }
 
-  }
+    public void setFrom(Date from) {
+        this.from = from;
+    }
 
-  public void setFrom(Date from) {
-    this.from = from;
-  }
+    public Date getFrom() {
+        return from;
+    }
 
-  public Date getFrom() {
-    return from;
-  }
+    public void setTo(Date to) {
+        this.to = to;
+    }
 
-  public void setTo(Date to) {
-    this.to = to;
-  }
+    public Date getTo() {
+        return to;
+    }
 
-  public Date getTo() {
-    return to;
-  }
+    public long getDuration() {
+        return to.getTime() - from.getTime();
+    }
 
-  public long getDuration() {
-    return to.getTime() - from.getTime();
-  }
+    public long getStart() {
+        return from.getTime();
+    }
 
-  public long getStart() {
-    return from.getTime();
-  }
+    public long getEnd() {
+        return to.getTime();
 
-  public long getEnd() {
-    return to.getTime();
-
-  }
+    }
 }

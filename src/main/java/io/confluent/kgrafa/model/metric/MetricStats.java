@@ -37,7 +37,7 @@ public class MetricStats {
     }
 
     public MetricStats add(Metric metric) {
-        this.name = metric.getName();
+        this.name = metric.canonicalName();
         total++;
         sum += metric.getValue();
         min = Math.min(min, metric.getValue());
@@ -93,4 +93,11 @@ public class MetricStats {
             super(new JsonSerializer<>(), new JsonDeserializer<>(MetricStats.class));
         }
     }
+
+    static public final class MultiMetricStatsSerde extends WrapperSerde<MultiMetricStats> {
+        public MultiMetricStatsSerde() {
+            super(new JsonSerializer<>(), new JsonDeserializer<>(MultiMetricStats.class));
+        }
+    }
+
 }

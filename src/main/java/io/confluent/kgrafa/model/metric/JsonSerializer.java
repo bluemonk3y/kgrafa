@@ -24,20 +24,20 @@ import java.util.Map;
 
 class JsonSerializer<T> implements Serializer<T> {
 
-  private final Gson gson = new Gson();
+    private final Gson gson = new Gson();
 
-  @Override
-  public void configure(Map<String, ?> map, boolean b) {
+    @Override
+    public void configure(Map<String, ?> map, boolean b) {
 
-  }
+    }
 
-  @Override
-  public byte[] serialize(String topic, T t) {
-    return gson.toJson(t).getBytes(Charset.forName("UTF-8"));
-  }
+    @Override
+    public byte[] serialize(String topic, T t) {
+        return gson.toJson(t).getBytes(Charset.forName("UTF-8"));
+    }
 
-  @Override
-  public void close() {
+    @Override
+    public void close() {
 
-  }
+    }
 }

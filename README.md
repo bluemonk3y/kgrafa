@@ -1,7 +1,7 @@
-# KGrafana - Kafka Grafana DataSource
+# KGrafana - Kafka Grafana Datasource for timeseries metrics
 
 
-Use Kafka as a Grafana Datasource by running Consumers against topics and building the timeseries metrics for charting in Grafana
+Use Kafka as a Grafana Datasource by running Streams Jobs against topics and building the timeseries metrics for charting in Grafana
 
 See: 
 - http://docs.grafana.org/plugins/developing/datasources/

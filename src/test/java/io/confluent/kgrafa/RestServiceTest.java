@@ -16,11 +16,14 @@
 package io.confluent.kgrafa;
 
 import io.confluent.kgrafa.utils.IntegrationTestHarness;
+import io.confluent.kgrafa.utils.StdoutWriter;
+import io.prometheus.jmx.JmxScraper;
 import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import javax.management.ObjectName;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
@@ -28,9 +31,15 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
+
 
 public class RestServiceTest {
 
@@ -69,7 +78,29 @@ public class RestServiceTest {
     public void runServerForAbit() throws Exception {
 
         generateRandomData();
+
+//        reportJmx();
+
         Thread.sleep(30 * 60 * 1000);
+    }
+
+    private void reportJmx() {
+
+        List<ObjectName> objectNames = new LinkedList<ObjectName>();
+        objectNames.add(null);
+
+        final JmxScraper jmxScraper = new JmxScraper("", "", "", false, objectNames, new LinkedList<>(), new StdoutWriter(new String[]{"metrics", "dev-1"}));
+
+        ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
+        scheduledExecutor.scheduleAtFixedRate(() -> {
+            try {
+                jmxScraper.doScrape();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }, 10, 10, TimeUnit.SECONDS);
+
+
     }
 
     private void generateRandomData() {
@@ -139,14 +170,26 @@ public class RestServiceTest {
         Client client = ClientBuilder.newClient();
         WebTarget target = client.target("http://localhost:8080").path("/kgrafa/putMetric");
 
-        String form = "{\n" +
-                "  \"name\": \"metrics_server-1\",\n" +
-                "  \"resource\": \"server-1\",\n" +
-                "  \"value\": %d,\n" +
-                "  \"time\": %d\n" +
+        String form1 = "{\n" +
+                "  \"bizTag\": \"biz1\",\n" +
+                "  \"envTag\": \"env-1\",\n" +
+                "  \"host\": \"host-1\",\n" +
+                "  \"appId\": \"java-app\",\n" +
+                "  \"metric\": {\n" +
+                "    \"resource\": \"CPU\",\n" +
+                "    \"name\": \"max\",\n" +
+                "    \"value\": %d,\n" +
+                "    \"time\": %d\n" +
+                "  }\n" +
                 "}";
+//        String form = "{\n" +
+//                "  \"name\": \"metrics_server-1\",\n" +
+//                "  \"resource\": \"server-1\",\n" +
+//                "  \"value\": %d,\n" +
+//                "  \"time\": %d\n" +
+//                "}";
         for (int i = 0; i < 100; i++) {
-            String payload = String.format(form, i, System.currentTimeMillis() - (i * 1000));
+            String payload = String.format(form1, i, System.currentTimeMillis() - (i * 1000));
 
             String response =
                     target.request(MediaType.APPLICATION_JSON_TYPE)

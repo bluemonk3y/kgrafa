@@ -6,6 +6,7 @@ import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -20,7 +21,7 @@ public class TimeSeeker {
         this.kafkaConsumer = kafkaConsumer;
     }
 
-    public void seek(final long timestamp, List<String> topics) {
+    public void seek(final long timestamp, Collection<String> topics) {
 
         Map<TopicPartition, Long> timestampMap = topics.stream().flatMap(topic -> getPartitions(topic).stream()).collect(Collectors.toMap(e -> e, e -> timestamp));
 

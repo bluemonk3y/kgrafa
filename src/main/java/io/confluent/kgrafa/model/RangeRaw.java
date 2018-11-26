@@ -21,25 +21,25 @@ package io.confluent.kgrafa.model;
  */
 public class RangeRaw {
 
-  private String from = "now-3h";
-  private String now = "now";
+    private String from = "now-3h";
+    private String now = "now";
 
-  public RangeRaw(){
-  }
+    public RangeRaw() {
+    }
 
-  public String getFrom() {
-    return from;
-  }
+    public String getFrom() {
+        return from;
+    }
 
-  public void setFrom(String from) {
-    this.from = from;
-  }
+    public void setFrom(String from) {
+        this.from = from;
+    }
 
-  public String getNow() {
-    return now;
-  }
+    public String getNow() {
+        return now;
+    }
 
-  public void setNow(String now) {
-    this.now = now;
-  }
+    public void setNow(String now) {
+        this.now = now;
+    }
 }
