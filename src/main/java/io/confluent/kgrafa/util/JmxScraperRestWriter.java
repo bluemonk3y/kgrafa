@@ -60,7 +60,7 @@ public class JmxScraperRestWriter implements JmxScraper.MBeanReceiver {
             String attrDescription,
             Object value) {
 
-        String metricJson = String.format(template, bizTag, envTag, hostName, domain.replace(" ", ""), getLabelFromList(attrKeys), getLabel(beanProperties), getNumeric(value), System.currentTimeMillis());
+        String metricJson = String.format(template, bizTag, envTag, hostName, domain.replace(" ", ""), getLabelFromList(attrKeys), getLabel(attrName, beanProperties), getNumeric(value), System.currentTimeMillis());
 
         target.request(MediaType.APPLICATION_JSON_TYPE)
                 .post(Entity.entity(metricJson, MediaType.APPLICATION_JSON), String.class);
@@ -74,9 +74,12 @@ public class JmxScraperRestWriter implements JmxScraper.MBeanReceiver {
     }
 
 
-    private String getLabel(LinkedHashMap<String, String> beanProperties) {
-        String collect = beanProperties.entrySet().stream().map(entry -> entry.getKey().replace(" ", "") + "-" + entry.getValue().replace(" ", "")).collect(Collectors.joining("."));
-        return collect.replace("\"", "'");
+    private String getLabel(String attrName, LinkedHashMap<String, String> beanProperties) {
+        //String collect = beanProperties.entrySet().stream().map(entry -> entry.getKey().replace(" ", "") + "-" + entry.getValue().replace(" ", "")).collect(Collectors.joining("."));
+        String collect = beanProperties.values().stream().map(entry -> entry.replace(" ", "")).collect(Collectors.joining("."));
+        String beanProps = collect.replace("\"", "'");
+        beanProps += "." + attrName;
+        return beanProps;
     }
 
     private double getNumeric(Object value) {
@@ -87,6 +90,8 @@ public class JmxScraperRestWriter implements JmxScraper.MBeanReceiver {
             v = (double) value;
         } else if (value instanceof Integer) {
             v = ((Integer) value).doubleValue();
+        } else if (value instanceof Boolean) {
+            v = ((Boolean) value).booleanValue() == true ? 1.0 : 0;
         } else {
             v = 0.0;
         }

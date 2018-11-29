@@ -119,11 +119,8 @@ public class Query {
 
         String[] metricPath = metric.canonicalName().split(" ");
 
-        for (Target target : targets) {
-            String[] filter = target.getTarget().split(" ");
-            if (!Metric.isPathMatch(metricPath, filter)) return false;
-        }
+        long matchesFilter = Arrays.stream(targets).filter(target -> Metric.isPathMatch(metricPath, target.getTargetAsSplit())).count();
 
-        return true;
+        return matchesFilter > 0;
     }
 }

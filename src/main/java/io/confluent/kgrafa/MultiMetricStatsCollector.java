@@ -47,6 +47,7 @@ public class MultiMetricStatsCollector {
     private long processedLast = 0;
     private long firstWhen = 0;
     private long lastWhen = 0;
+    private long queryEndTime;
 
 
     // TODO: consider passing in metric filter for filtering against specific metric name
@@ -62,6 +63,7 @@ public class MultiMetricStatsCollector {
         StreamsBuilder builder = new StreamsBuilder();
         KStream<String, Metric> tasks = builder.stream(metricTopic);
         Range queryRange = query.getRange();
+        queryEndTime = queryRange.getEnd();
 
         log.debug("Duration:" + windowDuration + "ms " + new Date(queryRange.getStart()) + " - " + new Date(queryRange.getEnd()) + " Topic: " + metricTopic + " Window:" + windowDuration);
 
@@ -128,11 +130,11 @@ public class MultiMetricStatsCollector {
 
     public void waitUntilReady() {
         try {
-            long startedWaiting = System.currentTimeMillis();
-            while (!finishedProcessing() && !waitedLongEnough(startedWaiting)) {
+            long start = System.currentTimeMillis();
+            while (!finishedProcessing() && !waitedLongEnough(start)) {
                 Thread.sleep(100);
             }
-            log.debug("DONE Waiting started:{} finished:{}  processedLast:{} endTime:{}", new Date(firstWhen), new Date(lastWhen), new Date(processedLast));
+            log.debug("DONE Waiting started:{} finished:{}  processedLast:{} finished:{} waited:{}", new Date(firstWhen), new Date(lastWhen), new Date(processedLast), finishedProcessing(), waitedLongEnough(start));
 
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -140,10 +142,10 @@ public class MultiMetricStatsCollector {
     }
 
     private boolean waitedLongEnough(long startedWaiting) {
-        return System.currentTimeMillis() > startedWaiting + 2000;
+        return System.currentTimeMillis() > startedWaiting + 10000;
     }
 
     private boolean finishedProcessing() {
-        return firstWhen != 0 && lastWhen != 0 && lastWhen < System.currentTimeMillis() - 200;
+        return processedLast > queryEndTime - 10000;
     }
 }

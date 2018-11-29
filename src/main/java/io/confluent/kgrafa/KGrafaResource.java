@@ -165,26 +165,30 @@ public class KGrafaResource {
         // 1 - start with metrics prefix,
         // 2 - check for existence of other specified tags
 
-        List<String> filteredTopics = findMetricTopicsForQuery(Arrays.asList(query.getTarget()));
+        List<String> metricsList = new ArrayList<>(getTopLevelTopics());
 
+        metricsList.addAll(findMetricTopicsForQuery(Arrays.asList(query.getTarget())));
 
         StringBuilder results = new StringBuilder("[");
 
-        for (int i = 0; i < filteredTopics.size(); i++) {
-            results.append("\"").append(filteredTopics.get(i)).append("\"");
-            if (i < filteredTopics.size() - 1) results.append(",");
-        }
+        results.append(metricsList.stream().map(topic -> "\"" + topic + "\"").collect(Collectors.joining(",")));
+
         results.append("]");
 //      String v1 = "[ \"upper_25\"]";
         // moxy bug doesnt handle String[] type
         return results.toString();
     }
 
+    private Set<String> getTopLevelTopics() {
+        return instance.metrics.stream().map(item -> item.substring(0, item.indexOf(" ")) + " * *").collect(Collectors.toSet());
+    }
+
     private List<String> findMetricTopicsForQuery(List<String> queries) {
         List<String> metricTopics = instance.getMetrics();
         List<String> results = new ArrayList<>();
+
         for (String query : queries) {
-            results.addAll(metricTopics.stream().filter(topic -> Metric.isPathMatch(topic.split(" "), query.split(" "))).collect(Collectors.toList()));
+            results.addAll(metricTopics.stream().filter(topic -> Metric.isPathMatch(topic.split(" "), query.split(" "))).limit(3000).collect(Collectors.toList()));
         }
         return results;
     }

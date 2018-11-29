@@ -42,4 +42,13 @@ public class Target {
     public String getTargetTopic() {
         return target.split(" ")[0];
     }
+
+    private String[] splitTarget;
+
+    public String[] getTargetAsSplit() {
+        if (splitTarget == null) {
+            splitTarget = target.split(" ");
+        }
+        return splitTarget;
+    }
 }

@@ -15,6 +15,8 @@
  **/
 package io.confluent.kgrafa.model.metric;
 
+import java.util.Arrays;
+
 /**
  * The Metric template for writing metric data to the kafka metrics topic in json format
  * this data is used by stream processors for generating percentile metrics
@@ -132,13 +134,24 @@ public class Metric {
         return false;
     }
 
-    static public boolean _isPathMatch(String[] topicMetric, String[] pathResourceNameFilter) {
+    static public boolean _isPathMatch(String[] canonicalMetric, String[] filter) {
         int match = 0;
-        if (pathResourceNameFilter[0].equals("*") || topicMetric[0].contains(pathResourceNameFilter[0])) match++;
-        if (pathResourceNameFilter[1].equalsIgnoreCase("*") || topicMetric[1].contains(pathResourceNameFilter[1]))
-            match++;
-        if (pathResourceNameFilter[2].equals("*") || topicMetric[2].contains(pathResourceNameFilter[2])) match++;
+        if (matches(filter, canonicalMetric, 0)) match++;
+        if (matches(filter, canonicalMetric, 1)) match++;
+        if (matches(filter, canonicalMetric, 2)) match++;
         return match == 3;
+    }
+
+    private static boolean matches(String[] filter, String[] canonicalMetric, int index) {
+        boolean isSimpleMatch = filter[index].equals("*") || canonicalMetric[index].contains(filter[index]);
+        if (!isSimpleMatch && filter[index].contains("*")) {
+            // handle partial match with filter broken by *. i.e. user*stuff matches <anything>user<anything>stuff<anything>
+            String[] split = filter[index].split("\\*");
+            long matchCount = Arrays.stream(split).filter(splitPart -> canonicalMetric[index].contains(splitPart)).count();
+            isSimpleMatch = matchCount == split.length;
+
+        }
+        return isSimpleMatch;
     }
 
     @Override

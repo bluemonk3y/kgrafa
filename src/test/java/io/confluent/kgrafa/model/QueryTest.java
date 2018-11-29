@@ -24,7 +24,22 @@ public class QueryTest {
     }
 
     @Test
-    public void passesWildcardFilter() {
+    public void passesPartialWildcardFilter() {
+
+        Query query = new Query();
+        query.setTargets(new Target[]{new Target("refId", "*server-863*apollo * idle")});
+
+        Metric cpu = new Metric("biz-1/production/server-863_lx/apollo", "cpu", "idle   ", 1, 1);
+        assertThat(query.passesFilter(cpu), is(true));
+
+        Metric noMatch = new Metric("biz-1/apollo", "cpu", "idle   ", 1, 1);
+        assertThat(query.passesFilter(noMatch), is(false));
+
+
+    }
+
+    @Test
+    public void passesSimpleWildcardFilter() {
 
         Query query = new Query();
         query.setTargets(new Target[]{new Target("refId", "biz-1/production/server-863_lx/apollo * idle")});
@@ -38,7 +53,6 @@ public class QueryTest {
 
         Metric notIdle = new Metric("biz-1/production/server-863_lx/apollo", "latency", "not", 1, 1);
         assertThat(query.passesFilter(notIdle), is(false));
-
     }
 
     @Test
