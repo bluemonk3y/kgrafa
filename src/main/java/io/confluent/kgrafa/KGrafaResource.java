@@ -21,14 +21,11 @@ import io.confluent.kgrafa.model.metric.MetricSerDes;
 import io.confluent.kgrafa.model.metric.MetricStats;
 import io.confluent.kgrafa.model.metric.MetricWithContext;
 import io.confluent.kgrafa.model.search.Target;
-import io.confluent.kgrafa.util.KafkaTopicClientImpl;
-import io.confluent.ksql.util.KsqlConfig;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsConfig;
@@ -187,7 +184,7 @@ public class KGrafaResource {
         List<String> metricTopics = instance.getMetrics();
         List<String> results = new ArrayList<>();
         for (String query : queries) {
-            results.addAll(metricTopics.stream().filter(topic -> Metric.isPathMatch(topic, query)).collect(Collectors.toList()));
+            results.addAll(metricTopics.stream().filter(topic -> Metric.isPathMatch(topic.split(" "), query.split(" "))).collect(Collectors.toList()));
         }
         return results;
     }
@@ -246,29 +243,32 @@ public class KGrafaResource {
         try {
             long startTime = System.currentTimeMillis();
 
-
             Properties streamsConfig = streamsProperties();
+
+            ArrayList<TimeSeriesResult> results = new ArrayList<>();
 
             // Convert the requested query strings into valid Kafka Topics
             Set<String> topicsForQuery = findMetricTopicsForQuery(query.getTopicsFromTargets()).stream().map(item -> Metric.getPathAsTopic(item)).collect(Collectors.toSet());
 
-            instance.timeAlignConsumerOffSetForConsumerId(streamsConfig.getProperty(StreamsConfig.APPLICATION_ID_CONFIG), query.getRange().getStart(), topicsForQuery);
+            if (topicsForQuery.size() > 0) {
 
-            MultiMetricStatsCollector metricStatsCollector = new MultiMetricStatsCollector(topicsForQuery, query, streamsConfig, query.getIntervalAsMillis());
+                instance.timeAlignConsumerOffSetForConsumerId(streamsConfig.getProperty(StreamsConfig.APPLICATION_ID_CONFIG), query.getRange().getStart(), topicsForQuery);
 
-            metricStatsCollector.start();
-            metricStatsCollector.waitUntilReady();
-            metricStatsCollector.stop();
+                MultiMetricStatsCollector metricStatsCollector = new MultiMetricStatsCollector(topicsForQuery, query, streamsConfig, query.getIntervalAsMillis());
 
-            ArrayList<TimeSeriesResult> results = new ArrayList<>();
+                metricStatsCollector.start();
+                metricStatsCollector.waitUntilReady();
+                metricStatsCollector.stop();
 
-            List<List<MetricStats>> metrics = metricStatsCollector.getMetrics();
 
-            for (List<MetricStats> metric : metrics) {
-                TimeSeriesResult timeSeriesResult = new TimeSeriesResult();
-                timeSeriesResult.setValues(metric.get(0).getName(), metric);
-                log.debug("TimeSeries Metric:{} \tpoints:{}", metric.get(0).getName(), metric.size());
-                results.add(timeSeriesResult);
+                List<List<MetricStats>> metrics = metricStatsCollector.getMetrics();
+
+                for (List<MetricStats> metric : metrics) {
+                    TimeSeriesResult timeSeriesResult = new TimeSeriesResult();
+                    timeSeriesResult.setValues(metric.get(0).getName(), metric);
+                    log.debug("TimeSeries Metric:{} \tpoints:{}", metric.get(0).getName(), metric.size());
+                    results.add(timeSeriesResult);
+                }
             }
 
             log.debug("Completed in time:{}", System.currentTimeMillis() - startTime);
@@ -395,35 +395,12 @@ public class KGrafaResource {
     @Produces("application/json")
     @Path("/putMetric")
     public String putMetric(
-            @Parameter(description = "Metric with conext: tags, host and appId", required = true) MetricWithContext metric) {
+            @Parameter(description = "Metric with conext: tags, host and appId", required = true) MetricWithContext metricWithContext) {
 
-        Metric metric1 = metric.getMetric();
-        metric1.path(metric.getBizTag(), metric.getEnvTag(), metric.getHost(), metric.getAppId());
-//        metric.path(bizTag, envTag, host, appId);
-        int size = instance.add(metric1);
+        Metric metric = metricWithContext.getMetric();
+        metric.path(metricWithContext.getBizTag(), metricWithContext.getEnvTag(), metricWithContext.getHost(), metricWithContext.getAppId());
+        int size = instance.add(metric);
         return String.format("{ \"queue\": \"%d\"}", size);
-    }
-
-
-    private KafkaTopicClientImpl kafkaTopicClient;
-
-
-    synchronized public KafkaTopicClientImpl getKafkaTopicClient() {
-        if (kafkaTopicClient == null) {
-            Properties consumerConfig = new Properties();
-            consumerConfig.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"));
-            consumerConfig.put(ConsumerConfig.GROUP_ID_CONFIG, System.getProperty("prefix", "kgrafa"));
-            consumerConfig.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-            consumerConfig.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
-
-            KsqlConfig ksqlConfig = new KsqlConfig(consumerConfig);
-
-            Map<String, Object> ksqlAdminClientConfigProps = ksqlConfig.getKsqlAdminClientConfigProps();
-
-            AdminClient adminClient = AdminClient.create(ksqlAdminClientConfigProps);
-            kafkaTopicClient = new KafkaTopicClientImpl(adminClient);
-        }
-        return kafkaTopicClient;
     }
 
 
@@ -437,7 +414,6 @@ public class KGrafaResource {
         config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         config.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG, 1);
         config.put(StreamsConfig.DEFAULT_DESERIALIZATION_EXCEPTION_HANDLER_CLASS_CONFIG, LogAndContinueExceptionHandler.class.getName());
-
         return config;
     }
 }

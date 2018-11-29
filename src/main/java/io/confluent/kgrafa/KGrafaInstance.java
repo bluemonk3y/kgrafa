@@ -72,7 +72,7 @@ public class KGrafaInstance {
 
             producer.send(new ProducerRecord(pathAsTopic, getInstance().getNumPartitions() - 1 % pathAsTopic.hashCode(), metric.getTime(), metric.getKey(), metric));
         }
-        if (createdTopics.size() > 0) System.out.println("Created:" + createdTopics);
+//        if (createdTopics.size() > 0) System.out.println("Created:" + createdTopics.keySet());
         producer.flush();
     }
 

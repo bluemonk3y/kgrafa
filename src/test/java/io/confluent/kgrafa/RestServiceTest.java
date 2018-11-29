@@ -15,8 +15,8 @@
  **/
 package io.confluent.kgrafa;
 
+import io.confluent.kgrafa.util.JmxScraperRestWriter;
 import io.confluent.kgrafa.utils.IntegrationTestHarness;
-import io.confluent.kgrafa.utils.StdoutWriter;
 import io.prometheus.jmx.JmxScraper;
 import org.hamcrest.CoreMatchers;
 import org.junit.After;
@@ -77,9 +77,9 @@ public class RestServiceTest {
     @Test
     public void runServerForAbit() throws Exception {
 
-        generateRandomData();
+//        generateRandomData();
 
-//        reportJmx();
+        reportJmx();
 
         Thread.sleep(30 * 60 * 1000);
     }
@@ -89,11 +89,15 @@ public class RestServiceTest {
         List<ObjectName> objectNames = new LinkedList<ObjectName>();
         objectNames.add(null);
 
-        final JmxScraper jmxScraper = new JmxScraper("", "", "", false, objectNames, new LinkedList<>(), new StdoutWriter(new String[]{"metrics", "dev-1"}));
+//        final JmxScraper jmxScraper = new JmxScraper("", "", "", false, objectNames, new LinkedList<>(), new StdoutWriter("metrics", "dev-1"));
+        final JmxScraperRestWriter jmxWriter = new JmxScraperRestWriter("http://localhost:8080", "metrics", "testEnv");
+        final JmxScraper jmxScraper = new JmxScraper("", "", "", false, objectNames, new LinkedList<>(), jmxWriter);
+
 
         ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
         scheduledExecutor.scheduleAtFixedRate(() -> {
             try {
+                System.out.println(new Date() + " Collecting Stats");
                 jmxScraper.doScrape();
             } catch (Exception e) {
                 e.printStackTrace();

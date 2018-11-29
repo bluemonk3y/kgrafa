@@ -71,7 +71,6 @@ public class MultiMetricStatsCollector {
         // Note: The consumer-id is already positioned to the start time for all TopicPartitions.
         // this will mean it starts from the right offset - but will also rely on the filter as it goes past the end
         KTable<Windowed<String>, MultiMetricStats> windowedTaskStatsKTable = tasks
-                // TODO: Add filter against other metric parmeters
                 .filter((key, value) -> query.passesFilter(value))
                 .groupByKey()
                 .windowedBy(TimeWindows.of(windowDuration))

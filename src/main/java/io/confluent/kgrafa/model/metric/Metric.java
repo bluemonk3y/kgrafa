@@ -124,22 +124,20 @@ public class Metric {
         return path.replace("_SLSH_", "/");
     }
 
-    public static boolean isPathMatch(String metricTopic, String target) {
-        // TODO: compile pattern
-        String[] queryParts = target.split(" ");
-        if (queryParts.length == 3) return isPathMatch(metricTopic, queryParts[0], queryParts[1], queryParts[2]);
-        if (queryParts.length == 2) return isPathMatch(metricTopic, queryParts[0], queryParts[1], "*");
-        if (queryParts.length == 1) return isPathMatch(metricTopic, queryParts[0], "*", "*");
+    public static boolean isPathMatch(String[] metricTopicPath, String[] queryParts) {
+        if (queryParts.length == 3) return _isPathMatch(metricTopicPath, queryParts);
+        if (queryParts.length == 2)
+            return _isPathMatch(metricTopicPath, new String[]{queryParts[0], queryParts[1], "*"});
+        if (queryParts.length == 1) return _isPathMatch(metricTopicPath, new String[]{queryParts[0], "*", "*"});
         return false;
     }
 
-    static public boolean isPathMatch(String topicMetric, String path, String metricResource, String metricName) {
+    static public boolean _isPathMatch(String[] topicMetric, String[] pathResourceNameFilter) {
         int match = 0;
-        // TODO: compile pattern
-        String[] topicMetricParts = topicMetric.split(" ");
-        if (path.equals("*") || topicMetricParts[0].contains(path)) match++;
-        if (metricResource.equalsIgnoreCase("*") || topicMetricParts[1].contains(metricResource)) match++;
-        if (metricName.equals("*") || topicMetricParts[2].contains(metricName)) match++;
+        if (pathResourceNameFilter[0].equals("*") || topicMetric[0].contains(pathResourceNameFilter[0])) match++;
+        if (pathResourceNameFilter[1].equalsIgnoreCase("*") || topicMetric[1].contains(pathResourceNameFilter[1]))
+            match++;
+        if (pathResourceNameFilter[2].equals("*") || topicMetric[2].contains(pathResourceNameFilter[2])) match++;
         return match == 3;
     }
 
@@ -152,10 +150,6 @@ public class Metric {
                 ", value=" + value +
                 ", time=" + time +
                 '}';
-    }
-
-    public boolean matchesFilter(String filter) {
-        return true;
     }
 
     /**

@@ -1,15 +1,24 @@
-package io.confluent.kgrafa.utils;
+package io.confluent.kgrafa.util;
 
 import io.prometheus.jmx.JmxScraper;
 
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.MediaType;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.stream.Collectors;
 
-public class StdoutWriter implements JmxScraper.MBeanReceiver {
+public class JmxScraperRestWriter implements JmxScraper.MBeanReceiver {
 
+    private final Client client;
+    private final WebTarget target;
+    private String hostName;
 
     private String template = "{\n" +
             "  \"bizTag\": \"%s\",\n" +
@@ -25,11 +34,16 @@ public class StdoutWriter implements JmxScraper.MBeanReceiver {
             "}";
     private final String bizTag;
     private final String envTag;
-    private String hostName;
 
-    public StdoutWriter(String bizTag, String envTag) {
+    public JmxScraperRestWriter(String restEndpoint, String bizTag, String envTag) {
+
         this.bizTag = bizTag;
         this.envTag = envTag;
+
+        client = ClientBuilder.newClient();
+
+        target = client.target(restEndpoint).path("/kgrafa/putMetric");
+
         try {
             hostName = InetAddress.getLocalHost().getHostName();
         } catch (UnknownHostException e) {
@@ -46,27 +60,27 @@ public class StdoutWriter implements JmxScraper.MBeanReceiver {
             String attrDescription,
             Object value) {
 
+        String metricJson = String.format(template, bizTag, envTag, hostName, domain.replace(" ", ""), getLabelFromList(attrKeys), getLabel(beanProperties), getNumeric(value), System.currentTimeMillis());
 
-
-        // REST: Path: [/2-tags/hostname ] Metric[ String app-context, String metric-name double value]
-        //
-
-
-        String format = String.format(template, bizTag, envTag, hostName, domain, attrKeys.toString(), getLabel(beanProperties), getNumeric(value), System.currentTimeMillis());
-
-
-//        System.out.println(String.format("%s/%s [ %s %s %s %s: %s ]", bizTag + "/" + envTag, hostName, domain, beanProperties, attrKeys, attrName, value));
-        System.out.println(format);
-
+        target.request(MediaType.APPLICATION_JSON_TYPE)
+                .post(Entity.entity(metricJson, MediaType.APPLICATION_JSON), String.class);
 
     }
 
+    private String getLabelFromList(List<String> attrKeys) {
+        String collect = attrKeys.stream().collect(Collectors.joining("-"));
+        if (collect.length() == 0) collect = "-";
+        return collect;
+    }
+
+
     private String getLabel(LinkedHashMap<String, String> beanProperties) {
-        return beanProperties.entrySet().stream().map(entry -> entry.getKey() + "-" + entry.getValue()).collect(Collectors.joining("."));
+        String collect = beanProperties.entrySet().stream().map(entry -> entry.getKey().replace(" ", "") + "-" + entry.getValue().replace(" ", "")).collect(Collectors.joining("."));
+        return collect.replace("\"", "'");
     }
 
     private double getNumeric(Object value) {
-        double v = 0;
+        Double v;
         if (value instanceof Long) {
             v = ((Long) value).doubleValue();
         } else if (value instanceof Double) {
@@ -74,8 +88,9 @@ public class StdoutWriter implements JmxScraper.MBeanReceiver {
         } else if (value instanceof Integer) {
             v = ((Integer) value).doubleValue();
         } else {
-            v = 0;
+            v = 0.0;
         }
+        if (v.isNaN() || v.isInfinite()) v = 0.0;
         return v;
     }
 }

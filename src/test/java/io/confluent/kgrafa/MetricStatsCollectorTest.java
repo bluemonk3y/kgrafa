@@ -19,33 +19,8 @@ import org.junit.Test;
 import java.util.*;
 
 import static junit.framework.TestCase.assertEquals;
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.not;
-import static org.junit.Assert.assertThat;
 
 public class MetricStatsCollectorTest {
-
-    @Test
-    public void metricMatchesQuery() throws Exception {
-        String q1 = "a/b/c/d someResource someMetric";
-
-        Metric.isPathMatch(q1, "* someResource *");
-        Metric.isPathMatch(q1, "* someResource");
-        Metric.isPathMatch(q1, "*");
-    }
-
-
-    @Test
-    public void metricTestPathToTopc() throws Exception {
-        String path = "a/b/c/d";
-        String pathAsTopic = Metric.getPathAsTopic(path);
-        System.out.println(pathAsTopic);
-
-        String topicAsPath = Metric.getTopicAsPath(pathAsTopic);
-        assertEquals(topicAsPath, path);
-        assertThat(pathAsTopic, not(containsString("/")));
-    }
-
 
     @Test
     public void multiTopicTotalWindowEventsForOneSecBucket() throws Exception {

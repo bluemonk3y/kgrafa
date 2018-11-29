@@ -117,8 +117,11 @@ public class Query {
         boolean passesTimeFilter = metric.getTime() >= getRange().getStart() && metric.getTime() <= getRange().getEnd();
         if (!passesTimeFilter) return false;
 
+        String[] metricPath = metric.canonicalName().split(" ");
+
         for (Target target : targets) {
-            if (!metric.matchesFilter(target.getTarget())) return false;
+            String[] filter = target.getTarget().split(" ");
+            if (!Metric.isPathMatch(metricPath, filter)) return false;
         }
 
         return true;
