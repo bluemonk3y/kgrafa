@@ -23,23 +23,15 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.Deserializer;
-import org.apache.kafka.common.serialization.Serializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.streams.StreamsConfig;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 public class IntegrationTestHarness {
 
@@ -83,26 +75,6 @@ public class IntegrationTestHarness {
     topicClient.createTopic(topicName, numPartitions, (short) replicationFactor);
   }
 
-  public <V> void produceData(String topicName,
-                              Map<String, V> recordsToPublish,
-                              Serializer<V> valueSerializer,
-                              Long timestamp)
-          throws InterruptedException, TimeoutException, ExecutionException {
-
-    createTopic(topicName, 1, 1);
-
-    Properties producerConfig = properties();
-    KafkaProducer<String, V> producer =
-            new KafkaProducer<>(producerConfig, new StringSerializer(), valueSerializer);
-
-    Map<String, RecordMetadata> result = new HashMap<>();
-    for (Map.Entry<String, V> recordEntry : recordsToPublish.entrySet()) {
-      Future<RecordMetadata> recordMetadataFuture = producer.send(buildRecord(topicName, timestamp, recordEntry));
-      result.put(recordEntry.getKey(), recordMetadataFuture.get(TEST_RECORD_FUTURE_TIMEOUT_MS, TimeUnit.MILLISECONDS));
-    }
-    producer.close();
-
-  }
   private <V> ProducerRecord<String, V> buildRecord(String topicName,
                                                          Long timestamp,
                                                          Map.Entry<String, V> recordEntry) {

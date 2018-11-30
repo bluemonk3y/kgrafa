@@ -17,6 +17,7 @@ package io.confluent.kgrafa.model;
 
 import io.confluent.kgrafa.model.metric.MetricStats;
 
+import java.text.DecimalFormat;
 import java.util.List;
 
 /**
@@ -40,7 +41,7 @@ import java.util.List;
 public class TimeSeriesResult {
 
     private String target = "upper_75";
-    private long[][] datapoints;
+    private double[][] datapoints;
 
     public TimeSeriesResult() {
 
@@ -54,11 +55,8 @@ public class TimeSeriesResult {
         return target;
     }
 
-    public void setDatapoints(long[][] datapoints) {
-        this.datapoints = datapoints;
-    }
 
-    public long[][] getDatapoints() {
+    public double[][] getDatapoints() {
         return datapoints;
     }
 
@@ -70,10 +68,11 @@ public class TimeSeriesResult {
                 "]}";
     }
 
-    private String stringifyArray(long[][] datapoints) {
+    private String stringifyArray(double[][] datapoints) {
+        DecimalFormat decimalFormat = new DecimalFormat("0.###");
         StringBuilder results = new StringBuilder();
-        for (long[] datapoint : datapoints) {
-            results.append("[").append(datapoint[0]).append(",").append(datapoint[1]).append("]").append(",");
+        for (double[] datapoint : datapoints) {
+            results.append("[").append(decimalFormat.format(datapoint[0])).append(",").append(Double.valueOf(datapoint[1]).longValue()).append("]").append(",");
         }
 
         String rr = results.toString();
@@ -83,11 +82,11 @@ public class TimeSeriesResult {
     public void setValues(String name, List<MetricStats> metrics) {
 
         this.setTarget(name);
-        long[][] datapoints = new long[metrics.size()][0];
+        double[][] datapoints = new double[metrics.size()][0];
 
         int i = 0;
         for (MetricStats metric : metrics) {
-            datapoints[i] = new long[]{(long) metric.getMax(), metric.getTime()};
+            datapoints[i] = new double[]{metric.getMax(), metric.getTime()};
             i++;
         }
 

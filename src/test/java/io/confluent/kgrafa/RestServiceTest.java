@@ -81,7 +81,7 @@ public class RestServiceTest {
 
         reportJmx();
 
-        Thread.sleep(30 * 60 * 1000);
+        Thread.sleep(5 * 60 * 60 * 1000);
     }
 
     private void reportJmx() {
@@ -131,23 +131,23 @@ public class RestServiceTest {
 
         WebTarget tsTarget = client.target("http://localhost:8080").path("/kgrafa/query");
 
-        String query = String.format("{\n" +
-                        "  \"range\": {\n" +
-                        "    \"from\": \"%s\",\n" +
-                        "    \"to\": \"%s\",\n" +
-                        "    \"end\": 0,\n" +
-                        "    \"start\": 0,\n" +
-                        "    \"duration\": 1000\n" +
-                        "  },\n" +
-                        "  \"interval\": \"1000\",\n" +
-                        "  \"targets\": [\n" +
-                        "    {\n" +
-                        "      \"refId\": \"A\",\"target\": \"%s\"\n" +
-                        "    }\n" +
-                        "  ],\n" +
-                        "  \"format\": \"string\",\n" +
-                        "  \"maxDataPoints\": 100,\n" +
-                        "  \"intervalAsMillis\": 100\n" +
+        String query = String.format("{%n" +
+                        "  \"range\": {%n" +
+                        "    \"from\": \"%s\",%n" +
+                        "    \"to\": \"%s\",%n" +
+                        "    \"end\": 0,%n" +
+                        "    \"start\": 0,%n" +
+                        "    \"duration\": 1000%n" +
+                        "  },%n" +
+                        "  \"interval\": \"1000\",%n" +
+                        "  \"targets\": [%n" +
+                        "    {%n" +
+                        "      \"refId\": \"A\",\"target\": \"%s\"%n" +
+                        "    }%n" +
+                        "  ],%n" +
+                        "  \"format\": \"string\",%n" +
+                        "  \"maxDataPoints\": 100,%n" +
+                        "  \"intervalAsMillis\": 100%n" +
                         "}",
                 new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(0),
                 new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(new Date()),

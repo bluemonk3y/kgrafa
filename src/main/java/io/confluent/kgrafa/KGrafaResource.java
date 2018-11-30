@@ -61,7 +61,6 @@ import java.util.stream.Collectors;
 public class KGrafaResource {
     private static final Logger log = LoggerFactory.getLogger(KGrafaResource.class);
 
-    static String metricPrefix = "metrics";
     private final KGrafaInstance instance;
 
     public KGrafaResource() {
@@ -124,11 +123,6 @@ public class KGrafaResource {
     public AnnnotationResult[] annotationQuery(
             @Parameter(description = "used by dashboards to get annotations", required = true) AnnnotationQuery annotationQuery) {
 
-        Range range = annotationQuery.getRange();
-        RangeRaw rangeRaw = annotationQuery.getRangeRaw();
-        Annnotation annotation = annotationQuery.getAnnnotation();
-
-
         AnnnotationResult annnotationResult = new AnnnotationResult();
         annnotationResult.setAnnotation(annotationQuery.getAnnotation());
         annnotationResult.setTime(System.currentTimeMillis());
@@ -174,13 +168,12 @@ public class KGrafaResource {
         results.append(metricsList.stream().map(topic -> "\"" + topic + "\"").collect(Collectors.joining(",")));
 
         results.append("]");
-//      String v1 = "[ \"upper_25\"]";
         // moxy bug doesnt handle String[] type
         return results.toString();
     }
 
     private Set<String> getTopLevelTopics() {
-        return instance.metrics.stream().map(item -> item.substring(0, item.indexOf(" ")) + " * *").collect(Collectors.toSet());
+        return instance.getMetrics().stream().map(item -> item.substring(0, item.indexOf(" ")) + " * *").collect(Collectors.toSet());
     }
 
     private List<String> findMetricTopicsForQuery(List<String> queries) {
@@ -233,6 +226,8 @@ public class KGrafaResource {
      * },
      */
 
+
+    Integer lock = 1;
     @POST
     @Path("/query")
     @Operation(summary = "returns time-series or table data for a panel",
@@ -247,7 +242,7 @@ public class KGrafaResource {
         try {
             long startTime = System.currentTimeMillis();
 
-            Properties streamsConfig = streamsProperties();
+
 
             ArrayList<TimeSeriesResult> results = new ArrayList<>();
 
@@ -256,35 +251,49 @@ public class KGrafaResource {
 
             if (topicsForQuery.size() > 0) {
 
-                instance.timeAlignConsumerOffSetForConsumerId(streamsConfig.getProperty(StreamsConfig.APPLICATION_ID_CONFIG), query.getRange().getStart(), topicsForQuery);
 
-                MultiMetricStatsCollector metricStatsCollector = new MultiMetricStatsCollector(topicsForQuery, query, streamsConfig, query.getIntervalAsMillis());
-
-                metricStatsCollector.start();
-                metricStatsCollector.waitUntilReady();
-                metricStatsCollector.stop();
-
-
-                List<List<MetricStats>> metrics = metricStatsCollector.getMetrics();
+                List<List<MetricStats>> metrics = runQuery(query, topicsForQuery);
 
                 for (List<MetricStats> metric : metrics) {
-                    TimeSeriesResult timeSeriesResult = new TimeSeriesResult();
-                    timeSeriesResult.setValues(metric.get(0).getName(), metric);
-                    log.debug("TimeSeries Metric:{} \tpoints:{}", metric.get(0).getName(), metric.size());
-                    results.add(timeSeriesResult);
+                    // strip out series with zero values
+                    long maxAboveZero = metric.stream().filter(item -> item.getMax() != Double.MIN_VALUE).count();
+                    if (maxAboveZero > 0) {
+                        TimeSeriesResult timeSeriesResult = new TimeSeriesResult();
+                        timeSeriesResult.setValues(metric.get(0).getName(), metric);
+                        log.debug("TimeSeries Metric:{} \tpoints:{}", metric.get(0).getName(), metric.size());
+                        results.add(timeSeriesResult);
+                    }
                 }
+                log.debug("NumberOfMetrics:{}", metrics.size());
+
             }
 
             log.debug("Completed in time:{}", System.currentTimeMillis() - startTime);
 
-//            System.out.println(results.toString());
             // moxy doesnt support multi-dimensional arrays so drop back to a json-string and rely on json response type
             // https://bugs.eclipse.org/bugs/show_bug.cgi?id=389815
             return results.toString();
 
         } catch (Throwable t) {
-            t.printStackTrace();
+            log.error("Query failed:{}", query, t);
             return "";
+        }
+    }
+
+    private List<List<MetricStats>> runQuery(@Parameter(description = "time-series or table query sent from the dashboard", required = true) Query query, Set<String> topicsForQuery) {
+
+        synchronized (lock) {
+            Properties streamsConfig = streamsProperties();
+            instance.timeAlignConsumerOffSetForConsumerId(streamsConfig.getProperty(StreamsConfig.APPLICATION_ID_CONFIG), query.getRange().getStart(), topicsForQuery);
+
+            MultiMetricStatsCollector metricStatsCollector = new MultiMetricStatsCollector(topicsForQuery, query, streamsConfig, query.getIntervalAsMillis());
+
+            metricStatsCollector.start();
+            metricStatsCollector.waitUntilReady();
+            metricStatsCollector.stop();
+
+
+            return metricStatsCollector.getMetrics();
         }
     }
 
@@ -317,24 +326,7 @@ public class KGrafaResource {
     @Produces("application/json")
     @Path("/datasources")
     public String datasources() {
-
-
-        List<String> topics = new ArrayList<>(instance.getInstance().listTopics(new String[]{metricPrefix, ""}));
-        Collections.sort(topics);
-
-//        return "{" +
-//                "\n {\n" +
-//                "  \"name\":\"test_datasource\",\n" +
-//                "  \"type\":\"kgrafa\",\n" +
-//                "  \"url\":\"http://mydatasource.com\",\n" +
-//                "  \"access\":\"proxy\",\n" +
-//                "  \"basicAuth\":false\n" +
-//                " }\n" +
-//                " \"sources\": \n" +
-//                topics.toString() +
-//                "\n}";
-        System.out.println(topics);
-        return topics.toString();
+        return instance.getMetrics().toString();
     }
 
 
@@ -410,11 +402,11 @@ public class KGrafaResource {
 
     private Properties streamsProperties() {
         Properties config = new Properties();
-        config.put(StreamsConfig.APPLICATION_ID_CONFIG, "kgrafa-server-" + System.currentTimeMillis());
+        config.put(StreamsConfig.APPLICATION_ID_CONFIG, "kgrafa-server-" + UUID.randomUUID().toString());
         config.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, System.getProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"));
         config.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
         config.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, MetricSerDes.class);
-        config.put(StreamsConfig.COMMIT_INTERVAL_MS_CONFIG, 1000);
+        config.put(StreamsConfig.COMMIT_INTERVAL_MS_CONFIG, 2000);
         config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         config.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG, 1);
         config.put(StreamsConfig.DEFAULT_DESERIALIZATION_EXCEPTION_HANDLER_CLASS_CONFIG, LogAndContinueExceptionHandler.class.getName());

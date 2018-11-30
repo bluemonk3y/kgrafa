@@ -53,7 +53,7 @@ public class KGrafaInstance {
     }
 
 
-    Set<String> metrics = new LinkedHashSet<>();
+    private Set<String> metrics = new LinkedHashSet<>();
 
     synchronized public void flushMetrics() {
         KafkaProducer producer = getProducer();
@@ -77,11 +77,15 @@ public class KGrafaInstance {
     }
 
 
+
     /**
      * Note: dont care about double locking because it is always created on startup in the Servlet Lifecycle.start()
      */
-    private static KGrafaInstance singleton = null;
+    private static volatile KGrafaInstance singleton = null;
 
+    /**
+     * Only called during initial startup
+     **/
     public static KGrafaInstance getInstance(Properties propertes) {
         if (singleton == null) {
 
@@ -93,9 +97,7 @@ public class KGrafaInstance {
 
             SimpleKGrafa kgrafa = new SimpleKGrafa(
                     topicClient,
-                    propertes.getProperty("prefix", "kgrafana"),
-                    propertes.getProperty("bootstrap.servers", "localhost:9092"),
-                    Integer.valueOf(propertes.getProperty("numPartitions", "2")),
+                    Integer.parseInt(propertes.getProperty("numPartitions", "2")),
                     Short.valueOf(propertes.getProperty("numReplicas", "1")
                     ));
 
