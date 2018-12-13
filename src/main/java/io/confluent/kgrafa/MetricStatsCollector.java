@@ -60,7 +60,7 @@ public class MetricStatsCollector {
         log.debug("Duration:" + windowDuration + "ms " + new Date(startTime) + " - " + new Date(endTime) + " Topic: " + metricTopic + " Window:" + windowDuration);
 
         KTable<Windowed<String>, MetricStats> windowedTaskStatsKTable = tasks
-                .filter((key, value) -> value.getTime() >= startTime && value.getTime() <= endTime)
+                .filter((key, value) -> value.time() >= startTime && value.time() <= endTime)
                 .groupBy((key, value) -> "agg-all-values")
                 .windowedBy(TimeWindows.of(windowDuration))
                 .aggregate(

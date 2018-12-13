@@ -30,17 +30,17 @@ public class MetricStatsCollectorTest {
 
     @Test
     public void singleTopicTotalWindowEventsForOneSecBucket() throws Exception {
-        processMultiMetricTopic(new String[]{"topic-1"}, 1000, 1, 6, 1000, 7000);
+        processMultiMetricTopic(new String[]{"/path/one"}, 1000, 1, 6, 1000, 7000);
     }
 
     @Test
     public void multiTopicTotalWindowEventsForTenSecBucket() throws Exception {
-        processMultiMetricTopic(new String[]{"topic-1", "topic-2"}, 10000, 3, 1, 3000, 10000);
+        processMultiMetricTopic(new String[]{"/path/one", "/path/two"}, 10000, 3, 1, 3000, 10000);
     }
 
     @Test
     public void singleTopicTotalWindowEventsForTenSecBucket() throws Exception {
-        processMultiMetricTopic(new String[]{"topic-1"}, 10000, 3, 1, 3000, 10000);
+        processMultiMetricTopic(new String[]{"/path/one"}, 10000, 3, 1, 3000, 10000);
     }
 
     private void processMultiMetricTopic(String[] topics, int windowDuration, int metricsPerFirstStat, int totalBuckets, int timeIncrement, int timeMax) throws Exception {
@@ -66,8 +66,8 @@ public class MetricStatsCollectorTest {
         MetricSerDes serDes = new MetricSerDes();
         for (Metric entry : sourceData.values()) {
             for (String topic : topics) {
-                System.out.println("TTTTT Publishing:" + entry.getKey() + " time:" + entry.getTime() + " entry: " + entry);
-                ConsumerRecord consumerRecord = new ConsumerRecord(topic, 0, i, entry.getTime(), TimestampType.CREATE_TIME, 1, 1, 1, entry.getKey().getBytes(), serDes.serialize("", entry));
+                System.out.println("TTTTT Publishing:" + entry.getKey() + " time:" + entry.time() + " entry: " + entry);
+                ConsumerRecord consumerRecord = new ConsumerRecord(topic, 0, i, entry.time(), TimestampType.CREATE_TIME, 1, 1, 1, entry.getKey().getBytes(), serDes.serialize("", entry));
                 driver.pipeInput(consumerRecord);
                 metrics.add(entry.getName());
 

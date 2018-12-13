@@ -23,9 +23,11 @@ import io.confluent.kgrafa.model.metric.MultiMetricStats;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.KafkaStreams;
+import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.kstream.*;
+import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.state.WindowStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,10 +74,12 @@ public class MultiMetricStatsCollector {
 
         Materialized<String, MultiMetricStats, WindowStore<Bytes, byte[]>> ss1 = Materialized.with(new Serdes.StringSerde(), new MetricStats.MultiMetricStatsSerde());
         Materialized<String, MultiMetricStats, WindowStore<Bytes, byte[]>> ss2 = ss1.withLoggingDisabled().withCachingDisabled();
+        TransformerSupplier<? super String, ? super Metric, KeyValue<String, Metric>> transformerSupplier = getKeyValueTransformerSupplier(query);
 
         // Note: The consumer-id is already positioned to the start time for all TopicPartitions.
         // this will mean it starts from the right offset - but will also rely on the filter as it goes past the end
         KTable<Windowed<String>, MultiMetricStats> windowedTaskStatsKTable = tasks
+                .transform(transformerSupplier)
                 .filter((key, value) -> trackLastMetric(value) && query.passesFilter(value))
                 .groupByKey()
                 .windowedBy(TimeWindows.of(windowDuration))
@@ -95,12 +99,50 @@ public class MultiMetricStatsCollector {
             }
             metricCollected++;
             lastWhen = System.currentTimeMillis();
-            //System.out.println("Processing" + " key:" + key.key() + " time:" + key.window().end() + " ---" + metricStats);
+            System.out.println("Processing" + " key:" + key.key() + " time:" + key.window().end() + " ---" + metricStats);
             Map<Long, MultiMetricStats> longMultiMetricStatsMap = stats.computeIfAbsent(key.key(), k -> new LinkedHashMap<>());
             longMultiMetricStatsMap.put(key.window().end(), metricStats);
                 }
         );
         return builder.build();
+    }
+
+    /**
+     * Support time-filtering and inject the timestamp into the Metric
+     *
+     * @param query
+     * @return
+     */
+    private TransformerSupplier<? super String, ? super Metric, KeyValue<String, Metric>> getKeyValueTransformerSupplier(Query query) {
+        // inject the timestamp from the processor API
+        return new TransformerSupplier<String, Metric, KeyValue<String, Metric>>() {
+            @Override
+            public Transformer<String, Metric, KeyValue<String, Metric>> get() {
+                return new Transformer<String, Metric, KeyValue<String, Metric>>() {
+                    private ProcessorContext context;
+
+                    @Override
+                    public void init(ProcessorContext context) {
+                        this.context = context;
+                    }
+
+                    @Override
+                    public KeyValue<String, Metric> transform(String key, Metric value) {
+                        if (query.passesTimeRange(context.timestamp())) {
+                            value.time(context.timestamp());
+                            return new KeyValue<>(key, value);
+                        } else {
+                            return null;
+                        }
+                    }
+
+                    @Override
+                    public void close() {
+
+                    }
+                };
+            }
+        };
     }
 
     private boolean trackLastMetric(Metric value) {
@@ -146,7 +188,7 @@ public class MultiMetricStatsCollector {
                 Thread.sleep(100);
             }
             log.debug("DONE \n\t\t Waiting started:{} finished:{}  \n\t\tprocessedLast:{} finished:{} waited:{} \n\t\tlastMetricTime:{} scannedMetrics:{} collectedMetrics:{}",
-                    new Date(firstWhen), new Date(lastWhen), new Date(processedLast), finishedProcessing(), waitedLongEnough(start), new Date(lastMetric.getTime()), metricScanned, metricCollected);
+                    new Date(firstWhen), new Date(lastWhen), new Date(processedLast), finishedProcessing(), waitedLongEnough(start), new Date(lastMetric.time()), metricScanned, metricCollected);
 
         } catch (InterruptedException e) {
             e.printStackTrace();

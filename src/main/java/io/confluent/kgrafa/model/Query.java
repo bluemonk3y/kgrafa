@@ -114,13 +114,16 @@ public class Query {
     }
 
     public boolean passesFilter(Metric metric) {
-        boolean passesTimeFilter = metric.getTime() >= getRange().getStart() && metric.getTime() <= getRange().getEnd();
-        if (!passesTimeFilter) return false;
+        if (!passesTimeRange(metric.time())) return false;
 
-        String[] metricPath = metric.canonicalName().split(" ");
+        String[] metricPath = metric.canonicalName();
 
         long matchesFilter = Arrays.stream(targets).filter(target -> Metric.isPathMatch(metricPath, target.getTargetAsSplit())).count();
 
         return matchesFilter > 0;
+    }
+
+    public boolean passesTimeRange(long timestamp) {
+        return timestamp >= getRange().getStart() && timestamp <= getRange().getEnd();
     }
 }

@@ -35,7 +35,7 @@ public class MetricSerDes implements Serde<Metric>, Serializer<Metric>, Deserial
                 throw new RuntimeException(this.getClass().getSimpleName() + ": Cannot read 'null' record for key:" + topic);
             }
             JsonNode jsonNode = this.objectMapper.readTree(bytes);
-            return new Metric(Metric.getTopicAsPath(topic), jsonNode.get("resource").asText(), jsonNode.get("name").asText(), jsonNode.get("value").asDouble(), jsonNode.get("time").asLong());
+            return new Metric(Metric.getTopicAsPath(topic), jsonNode.get("resource").asText(), jsonNode.get("name").asText(), jsonNode.get("value").asDouble(), 0);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

@@ -16,6 +16,7 @@
 package io.confluent.kgrafa.model.metric;
 
 import java.util.Arrays;
+import java.util.stream.Collectors;
 
 /**
  * The Metric template for writing metric data to the kafka metrics topic in json format
@@ -79,11 +80,11 @@ public class Metric {
         this.value = value;
     }
 
-    public long getTime() {
+    public long time() {
         return time;
     }
 
-    public void setTime(long time) {
+    public void time(long time) {
         this.time = time;
     }
 
@@ -117,8 +118,8 @@ public class Metric {
     }
 
 
-    public String canonicalName() {
-        return path + " " + resource + " " + name;
+    public String[] canonicalName() {
+        return new String[]{path, resource, name};
     }
 
     static public String getPathAsTopic(String path) {
@@ -176,5 +177,9 @@ public class Metric {
      */
     public String getKey() {
         return resource + name;
+    }
+
+    public String canonicalNameAsString() {
+        return Arrays.stream(canonicalName()).collect(Collectors.joining(" "));
     }
 }

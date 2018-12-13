@@ -37,7 +37,7 @@ public class MetricStats {
     }
 
     public MetricStats add(Metric metric) {
-        this.name = metric.canonicalName();
+        this.name = metric.canonicalNameAsString();
         total++;
         sum += metric.getValue();
         min = Math.min(min, metric.getValue());

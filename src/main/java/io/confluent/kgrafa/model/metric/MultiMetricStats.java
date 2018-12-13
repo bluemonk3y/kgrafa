@@ -13,7 +13,7 @@ public class MultiMetricStats {
     }
 
     public MultiMetricStats addIt(Metric metric) {
-        MetricStats metricStats = stats.computeIfAbsent(metric.canonicalName(), k -> new MetricStats());
+        MetricStats metricStats = stats.computeIfAbsent(metric.canonicalNameAsString(), k -> new MetricStats());
         metricStats.add(metric);
         return this;
     }

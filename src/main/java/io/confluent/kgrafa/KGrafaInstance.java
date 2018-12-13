@@ -63,14 +63,14 @@ public class KGrafaInstance {
             Metric metric = inputMetrics.remove();
 
             String pathAsTopic = metric.getPathAsTopic(metric.path());
-            metrics.add(metric.canonicalName());
+            metrics.add(metric.canonicalNameAsString());
 
             createdTopics.computeIfAbsent(pathAsTopic, k -> {
                 getInstance().createTopic(pathAsTopic);
                 return pathAsTopic;
             });
 
-            producer.send(new ProducerRecord(pathAsTopic, getInstance().getNumPartitions() - 1 % pathAsTopic.hashCode(), metric.getTime(), metric.getKey(), metric));
+            producer.send(new ProducerRecord(pathAsTopic, getInstance().getNumPartitions() - 1 % pathAsTopic.hashCode(), metric.time(), metric.getKey(), metric));
         }
 //        if (createdTopics.size() > 0) System.out.println("Created:" + createdTopics.keySet());
         producer.flush();
