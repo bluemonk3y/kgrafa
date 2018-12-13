@@ -58,10 +58,6 @@ public class RestServiceTest {
 
         Thread.sleep(500);
 
-        //    testHarness.createTopic("metrics_nasa-6_cpu", 1, 1);
-        //    testHarness.createTopic("metrics_prometheus_cpu", 1, 1);
-        //    testHarness.createTopic("metrics_apollo_cpu", 1, 1);
-
         RestServerMain.initialize();
         RestServerMain.start();
     }

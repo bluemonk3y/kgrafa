@@ -37,6 +37,7 @@ import java.util.Arrays;
  */
 public class Metric {
 
+    public static final String SLASH = "_SLSH_";
     // path ==  biz-label / env-label, host, app-label
     transient private String path;
 
@@ -101,6 +102,9 @@ public class Metric {
      * @return
      */
     public String path() {
+        if (path.contains(SLASH)) {
+            path = Metric.getTopicAsPath(path);
+        }
         return path;
     }
 
@@ -119,11 +123,11 @@ public class Metric {
 
     static public String getPathAsTopic(String path) {
         if (path.contains(" ")) path = path.split(" ")[0];
-        return path.replace("/", "_SLSH_");
+        return path.replace("/", SLASH);
     }
 
     static public String getTopicAsPath(String path) {
-        return path.replace("_SLSH_", "/");
+        return path.replace(SLASH, "/");
     }
 
     public static boolean isPathMatch(String[] metricTopicPath, String[] queryParts) {

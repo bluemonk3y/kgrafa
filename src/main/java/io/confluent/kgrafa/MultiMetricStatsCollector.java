@@ -48,6 +48,9 @@ public class MultiMetricStatsCollector {
     private long firstWhen = 0;
     private long lastWhen = 0;
     private long queryEndTime;
+    private Metric lastMetric;
+    private int metricScanned;
+    private int metricCollected;
 
 
     // TODO: consider passing in metric filter for filtering against specific metric name
@@ -73,7 +76,7 @@ public class MultiMetricStatsCollector {
         // Note: The consumer-id is already positioned to the start time for all TopicPartitions.
         // this will mean it starts from the right offset - but will also rely on the filter as it goes past the end
         KTable<Windowed<String>, MultiMetricStats> windowedTaskStatsKTable = tasks
-                .filter((key, value) -> query.passesFilter(value))
+                .filter((key, value) -> trackLastMetric(value) && query.passesFilter(value))
                 .groupByKey()
                 .windowedBy(TimeWindows.of(windowDuration))
                 .aggregate(
@@ -90,6 +93,7 @@ public class MultiMetricStatsCollector {
             if (firstWhen == 0) {
                 firstWhen = System.currentTimeMillis();
             }
+            metricCollected++;
             lastWhen = System.currentTimeMillis();
             //System.out.println("Processing" + " key:" + key.key() + " time:" + key.window().end() + " ---" + metricStats);
             Map<Long, MultiMetricStats> longMultiMetricStatsMap = stats.computeIfAbsent(key.key(), k -> new LinkedHashMap<>());
@@ -98,6 +102,13 @@ public class MultiMetricStatsCollector {
         );
         return builder.build();
     }
+
+    private boolean trackLastMetric(Metric value) {
+        metricScanned++;
+        this.lastMetric = value;
+        return true;
+    }
+
 
     public void start() {
         streams = new KafkaStreams(topology, streamsConfig);
@@ -134,7 +145,8 @@ public class MultiMetricStatsCollector {
             while (!finishedProcessing() && !waitedLongEnough(start)) {
                 Thread.sleep(100);
             }
-            log.debug("DONE Waiting started:{} finished:{}  processedLast:{} finished:{} waited:{}", new Date(firstWhen), new Date(lastWhen), new Date(processedLast), finishedProcessing(), waitedLongEnough(start));
+            log.debug("DONE \n\t\t Waiting started:{} finished:{}  \n\t\tprocessedLast:{} finished:{} waited:{} \n\t\tlastMetricTime:{} scannedMetrics:{} collectedMetrics:{}",
+                    new Date(firstWhen), new Date(lastWhen), new Date(processedLast), finishedProcessing(), waitedLongEnough(start), new Date(lastMetric.getTime()), metricScanned, metricCollected);
 
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -142,7 +154,7 @@ public class MultiMetricStatsCollector {
     }
 
     private boolean waitedLongEnough(long startedWaiting) {
-        return System.currentTimeMillis() > startedWaiting + 10000;
+        return System.currentTimeMillis() > startedWaiting + (60 * 1000);
     }
 
     private boolean finishedProcessing() {
