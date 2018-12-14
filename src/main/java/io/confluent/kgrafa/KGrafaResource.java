@@ -406,7 +406,7 @@ public class KGrafaResource {
         config.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, System.getProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"));
         config.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
         config.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, MetricSerDes.class);
-        config.put(StreamsConfig.COMMIT_INTERVAL_MS_CONFIG, 2000);
+//        config.put(StreamsConfig.COMMIT_INTERVAL_MS_CONFIG, 2000);
         config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         config.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG, 1);
         config.put(StreamsConfig.DEFAULT_DESERIALIZATION_EXCEPTION_HANDLER_CLASS_CONFIG, LogAndContinueExceptionHandler.class.getName());
