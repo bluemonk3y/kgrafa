@@ -5,13 +5,14 @@ public class MetricWithContext {
     String envTag;
     String host;
     String appId;
+    long time;
     Metric metric;
 
     public MetricWithContext() {
-
     }
 
-    public MetricWithContext(String bizTag, String envTag, String host, String appId, Metric metric) {
+    public MetricWithContext(String bizTag, String envTag, String host, String appId, long time, Metric metric) {
+        this.time = time;
         this.bizTag = bizTag;
         this.envTag = envTag;
         this.host = host;
@@ -52,10 +53,20 @@ public class MetricWithContext {
     }
 
     public Metric getMetric() {
+        metric.time(this.time);
         return metric;
     }
 
     public void setMetric(Metric metric) {
         this.metric = metric;
     }
+
+    public long getTime() {
+        return time;
+    }
+
+    public void setTime(long time) {
+        this.time = time;
+    }
+
 }

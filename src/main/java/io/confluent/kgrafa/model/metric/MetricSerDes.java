@@ -15,28 +15,26 @@
  **/
 package io.confluent.kgrafa.model.metric;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serializer;
 
-import java.io.IOException;
 import java.util.Map;
 
 public class MetricSerDes implements Serde<Metric>, Serializer<Metric>, Deserializer<Metric> {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-
     public Metric deserialize(String topic, byte[] bytes) {
+
         try {
             if (bytes == null) {
                 throw new RuntimeException(this.getClass().getSimpleName() + ": Cannot read 'null' record for key:" + topic);
             }
             JsonNode jsonNode = this.objectMapper.readTree(bytes);
             return new Metric(Metric.getTopicAsPath(topic), jsonNode.get("resource").asText(), jsonNode.get("name").asText(), jsonNode.get("value").asDouble(), 0);
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -49,7 +47,7 @@ public class MetricSerDes implements Serde<Metric>, Serializer<Metric>, Deserial
     public byte[] serialize(String s, Metric task) {
         try {
             return this.objectMapper.writeValueAsBytes(task);
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }

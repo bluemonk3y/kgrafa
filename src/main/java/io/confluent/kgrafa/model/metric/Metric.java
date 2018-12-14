@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 /**
  * The Metric template for writing metric data to the kafka metrics topic in json format
  * this data is used by stream processors for generating percentile metrics
- * * /[tags]/[host]/[app-context]/[resource-name][metric-name]  value timestamp
+ * * /[tags]/[host]/[app-context]/[resource-name][metric-name]  value time
  * i.e.
  * TAGS/myhost/SERVER_RESOURCES/cpu-2/cpu-idle 98.61 1329168255
  * /myhost/cpu-2/cpu-nice 0 1329168255

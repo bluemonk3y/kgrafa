@@ -23,7 +23,6 @@ import io.confluent.kgrafa.model.metric.MultiMetricStats;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.KafkaStreams;
-import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.kstream.*;
@@ -42,15 +41,15 @@ public class MultiMetricStatsCollector {
 
     private final Topology topology;
     private final Properties streamsConfig;
-    private KafkaStreams streams;
     private final Map<String, Map<Long, MultiMetricStats>> stats = new TreeMap<>();
+    private KafkaStreams streams;
     private long windowDuration;
 
     private long processedLast = 0;
     private long firstWhen = 0;
     private long lastWhen = 0;
     private long queryEndTime;
-    private Metric lastMetric;
+    private Metric lastMetric = new Metric();
     private int metricScanned;
     private int metricCollected;
 
@@ -74,12 +73,14 @@ public class MultiMetricStatsCollector {
 
         Materialized<String, MultiMetricStats, WindowStore<Bytes, byte[]>> ss1 = Materialized.with(new Serdes.StringSerde(), new MetricStats.MultiMetricStatsSerde());
         Materialized<String, MultiMetricStats, WindowStore<Bytes, byte[]>> ss2 = ss1.withLoggingDisabled().withCachingDisabled();
-        TransformerSupplier<? super String, ? super Metric, KeyValue<String, Metric>> transformerSupplier = getKeyValueTransformerSupplier(query);
+
+        ValueTransformerSupplier<Metric, Metric> transformerValueSupplier = getValueTransformer();
 
         // Note: The consumer-id is already positioned to the start time for all TopicPartitions.
         // this will mean it starts from the right offset - but will also rely on the filter as it goes past the end
+
         KTable<Windowed<String>, MultiMetricStats> windowedTaskStatsKTable = tasks
-                .transform(transformerSupplier)
+                .transformValues(transformerValueSupplier)
                 .filter((key, value) -> trackLastMetric(value) && query.passesFilter(value))
                 .groupByKey()
                 .windowedBy(TimeWindows.of(windowDuration))
@@ -99,7 +100,7 @@ public class MultiMetricStatsCollector {
             }
             metricCollected++;
             lastWhen = System.currentTimeMillis();
-            System.out.println("Processing" + " key:" + key.key() + " time:" + key.window().end() + " ---" + metricStats);
+            //System.out.println("**** Processing" + " key:" + key.key() + " time:" + key.window().end() + " ---" + metricStats);
             Map<Long, MultiMetricStats> longMultiMetricStatsMap = stats.computeIfAbsent(key.key(), k -> new LinkedHashMap<>());
             longMultiMetricStatsMap.put(key.window().end(), metricStats);
                 }
@@ -107,18 +108,12 @@ public class MultiMetricStatsCollector {
         return builder.build();
     }
 
-    /**
-     * Support time-filtering and inject the timestamp into the Metric
-     *
-     * @param query
-     * @return
-     */
-    private TransformerSupplier<? super String, ? super Metric, KeyValue<String, Metric>> getKeyValueTransformerSupplier(Query query) {
-        // inject the timestamp from the processor API
-        return new TransformerSupplier<String, Metric, KeyValue<String, Metric>>() {
+    private ValueTransformerSupplier<Metric, Metric> getValueTransformer() {
+        return new ValueTransformerSupplier<Metric, Metric>() {
+
             @Override
-            public Transformer<String, Metric, KeyValue<String, Metric>> get() {
-                return new Transformer<String, Metric, KeyValue<String, Metric>>() {
+            public ValueTransformer<Metric, Metric> get() {
+                return new ValueTransformer<Metric, Metric>() {
                     private ProcessorContext context;
 
                     @Override
@@ -127,13 +122,9 @@ public class MultiMetricStatsCollector {
                     }
 
                     @Override
-                    public KeyValue<String, Metric> transform(String key, Metric value) {
-                        if (query.passesTimeRange(context.timestamp())) {
-                            value.time(context.timestamp());
-                            return new KeyValue<>(key, value);
-                        } else {
-                            return null;
-                        }
+                    public Metric transform(Metric value) {
+                        value.time(context.timestamp());
+                        return value;
                     }
 
                     @Override
@@ -150,7 +141,6 @@ public class MultiMetricStatsCollector {
         this.lastMetric = value;
         return true;
     }
-
 
     public void start() {
         streams = new KafkaStreams(topology, streamsConfig);
@@ -187,8 +177,8 @@ public class MultiMetricStatsCollector {
             while (!finishedProcessing() && !waitedLongEnough(start)) {
                 Thread.sleep(100);
             }
-            log.debug("DONE \n\t\t Waiting started:{} finished:{}  \n\t\tprocessedLast:{} finished:{} waited:{} \n\t\tlastMetricTime:{} scannedMetrics:{} collectedMetrics:{}",
-                    new Date(firstWhen), new Date(lastWhen), new Date(processedLast), finishedProcessing(), waitedLongEnough(start), new Date(lastMetric.time()), metricScanned, metricCollected);
+            log.debug("DONE \n\t\t Waiting started:{} finished:{} elapsed:{}  \n\t\tprocessedLast:{} finished:{} waited:{} \n\t\tlastMetricTime:{} scannedMetrics:{} collectedMetrics:{}",
+                    new Date(firstWhen), new Date(lastWhen), System.currentTimeMillis() - start, new Date(processedLast), finishedProcessing(), waitedLongEnough(start), new Date(lastMetric.time()), metricScanned, metricCollected);
 
         } catch (InterruptedException e) {
             e.printStackTrace();

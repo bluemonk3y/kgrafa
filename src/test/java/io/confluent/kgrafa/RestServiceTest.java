@@ -103,15 +103,12 @@ public class RestServiceTest {
 
     }
 
-    private void generateRandomData() {
-        Client client = ClientBuilder.newClient();
-        WebTarget target = client.target("http://localhost:8080").path("/kgrafa/generateRandomData");
-        target.request(MediaType.APPLICATION_JSON).get();
 
-    }
 
     @Test
     public void testAutogenDataIsSearchable() throws Exception {
+
+        generateRandomData();
 
         Client client = ClientBuilder.newClient();
         String datasources = client.target("http://localhost:8080").path("/kgrafa/datasources")
@@ -120,7 +117,7 @@ public class RestServiceTest {
 
         System.out.println("Sources:" + datasources);
 
-        String autogenMetric = "metrics_emea-dc1_apollo_cpu";
+        String autogenMetric = "apollo cpu";
         /**
          * Query the time series data
          */
@@ -175,6 +172,7 @@ public class RestServiceTest {
                 "  \"envTag\": \"env-1\",\n" +
                 "  \"host\": \"host-1\",\n" +
                 "  \"appId\": \"java-app\",\n" +
+//                "  \"time\": %d\n" +
                 "  \"metric\": {\n" +
                 "    \"resource\": \"CPU\",\n" +
                 "    \"name\": \"max\",\n" +
@@ -189,7 +187,8 @@ public class RestServiceTest {
 //                "  \"time\": %d\n" +
 //                "}";
         for (int i = 0; i < 100; i++) {
-            String payload = String.format(form1, i, System.currentTimeMillis() - (i * 1000));
+            long time = System.currentTimeMillis() - (i * 1000);
+            String payload = String.format(form1, i, time);
 
             String response =
                     target.request(MediaType.APPLICATION_JSON_TYPE)
@@ -212,7 +211,7 @@ public class RestServiceTest {
                 .get(String.class);
 
 
-        assertThat(datasources, containsString("metrics_server-1"));
+        assertThat(datasources, containsString("biz1/env-1/host-1/java-app"));
 
         /**
          * Query the time series data
@@ -240,7 +239,7 @@ public class RestServiceTest {
                         "}",
                 new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(0),
                 new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(new Date()),
-                "metrics_server-1");
+                "biz1/env-1/host-1/java-app");
 
         String response =
                 tsTarget.request(MediaType.APPLICATION_JSON_TYPE)
@@ -248,5 +247,12 @@ public class RestServiceTest {
                                 String.class);
 
         System.out.println(":::::::" + response);
+    }
+
+    private void generateRandomData() {
+        Client client = ClientBuilder.newClient();
+        WebTarget target = client.target("http://localhost:8080").path("/kgrafa/generateRandomData");
+        target.request(MediaType.APPLICATION_JSON).get();
+
     }
 }

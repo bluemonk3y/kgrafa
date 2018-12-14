@@ -25,6 +25,7 @@ public class JmxScraperRestWriter implements JmxScraper.MBeanReceiver {
             "  \"envTag\": \"%s\",\n" +
             "  \"host\": \"%s\",\n" +
             "  \"appId\": \"%s\",\n" +
+            "  \"time\": %d,\n" +
             "  \"metric\": {\n" +
             "    \"resource\": \"%s\",\n" +
             "    \"name\": \"%s\",\n" +
@@ -62,7 +63,7 @@ public class JmxScraperRestWriter implements JmxScraper.MBeanReceiver {
 
         double numeric = getNumeric(value);
         if (!Double.valueOf(numeric).isInfinite()) {
-            String metricJson = String.format(template, bizTag, envTag, hostName, domain.replace(" ", ""), getLabelFromList(attrKeys), getLabel(attrName, beanProperties), numeric, System.currentTimeMillis());
+            String metricJson = String.format(template, bizTag, envTag, hostName, domain.replace(" ", ""), System.currentTimeMillis(), getLabelFromList(attrKeys), getLabel(attrName, beanProperties), numeric, System.currentTimeMillis());
 
             target.request(MediaType.APPLICATION_JSON_TYPE)
                     .post(Entity.entity(metricJson, MediaType.APPLICATION_JSON), String.class);

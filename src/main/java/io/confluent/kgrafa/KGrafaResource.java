@@ -268,7 +268,7 @@ public class KGrafaResource {
 
             }
 
-            log.debug("Completed in time:{}", System.currentTimeMillis() - startTime);
+            log.debug("Completed in time:{} Topics:{}", System.currentTimeMillis() - startTime, topicsForQuery.size());
 
             // moxy doesnt support multi-dimensional arrays so drop back to a json-string and rely on json response type
             // https://bugs.eclipse.org/bugs/show_bug.cgi?id=389815
@@ -377,7 +377,7 @@ public class KGrafaResource {
             double value = Math.random() * t / (1000 * 1000 * 1000);
             value += i * 100;
             Metric metric = new Metric("", request.getResource(), request.getMetric(), value, t);
-            MetricWithContext metricWithContext = new MetricWithContext("biz-1", "production", "server-863_lx", request.getSource(), metric);
+            MetricWithContext metricWithContext = new MetricWithContext("biz-1", "production", "server-863_lx", request.getSource(), t, metric);
             putMetric(metricWithContext);
             i++;
         }
